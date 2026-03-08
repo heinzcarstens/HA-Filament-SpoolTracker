@@ -92,4 +92,41 @@ router.get('/ha/entities', async (_req: Request, res: Response) => {
   }
 });
 
+/** GET /ha/entities/states?ids=entity1,entity2 returns { [entity_id]: state } for each */
+router.get('/ha/entities/states', async (req: Request, res: Response) => {
+  try {
+    const supervisorToken = process.env.SUPERVISOR_TOKEN;
+    const idsParam = typeof req.query.ids === 'string' ? req.query.ids : '';
+    const entityIds = idsParam.split(',').map((id) => id.trim()).filter(Boolean);
+    if (!supervisorToken || entityIds.length === 0) {
+      return res.json({});
+    }
+
+    const results: Record<string, string | null> = {};
+    await Promise.all(
+      entityIds.map(async (entityId) => {
+        try {
+          const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(entityId)}`, {
+            headers: { Authorization: `Bearer ${supervisorToken}` },
+          });
+          if (!response.ok) {
+            results[entityId] = null;
+            return;
+          }
+          const data = await response.json() as { state?: string };
+          const state = data.state;
+          results[entityId] =
+            state === 'unknown' || state === 'unavailable' || state === undefined ? null : state;
+        } catch {
+          results[entityId] = null;
+        }
+      })
+    );
+    res.json(results);
+  } catch (error) {
+    logger.error('Failed to fetch entity states:', error);
+    res.json({});
+  }
+});
+
 export default router;

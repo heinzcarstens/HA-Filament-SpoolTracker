@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { printersApi, haApi } from '@services/api';
 import type { Printer, HAConnectionStatus, HADiscoveredEntity } from '@ha-addon/types';
-import EditPrinterModal from '@modals/EditPrinterModal';
+import EditPrinterModal, { type EditPrinterSaveData } from '@modals/EditPrinterModal';
 import AddPrinterModal from '@modals/AddPrinterModal';
 import ConfirmModal from '@modals/ConfirmModal';
 import './index.css';
@@ -75,7 +75,7 @@ export default function PrintersPage() {
     }
   };
 
-  const handleSaveEdit = async (data: { name: string; entityPrefix: string; model?: string }) => {
+  const handleSaveEdit = async (data: EditPrinterSaveData) => {
     if (!editingPrinter) return;
     try {
       const res = await printersApi.update(editingPrinter.id, data);
@@ -191,6 +191,11 @@ export default function PrintersPage() {
           printer={editingPrinter}
           onSave={handleSaveEdit}
           onClose={() => setEditingPrinter(null)}
+          onDiscover={async () => {
+            const res = await haApi.getEntities();
+            return res.data;
+          }}
+          onFetchEntityStates={(entityIds) => haApi.getEntityStates(entityIds).then((r) => r.data)}
         />
       )}
 

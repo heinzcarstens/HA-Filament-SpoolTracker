@@ -96,6 +96,11 @@ export const dashboardApi = {
 export const haApi = {
   getStatus: () => api.get<HAConnectionStatus>('/ha/status'),
   getEntities: () => api.get<HADiscoveredEntity[]>('/ha/entities'),
+  /** Fetch current state for given entity IDs. Returns { [entity_id]: state } (null if unavailable). */
+  getEntityStates: (entityIds: string[]) =>
+    api.get<Record<string, string | null>>('/ha/entities/states', {
+      params: { ids: entityIds.filter(Boolean).join(',') },
+    }),
 };
 
 export const settingsApi = {

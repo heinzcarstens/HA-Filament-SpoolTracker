@@ -7,6 +7,10 @@ export interface Printer {
   entityPrefix: string;
   model: string | null;
   isActive: boolean;
+  entityPrintStatus: string | null;
+  entityTaskName: string | null;
+  entityPrintWeight: string | null;
+  entityCoverImage: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -85,6 +89,10 @@ export interface PrinterCreateRequest {
   haDeviceId: string;
   entityPrefix: string;
   model?: string;
+  entityPrintStatus?: string | null;
+  entityTaskName?: string | null;
+  entityPrintWeight?: string | null;
+  entityCoverImage?: string | null;
 }
 
 export interface PrinterUpdateRequest extends Partial<PrinterCreateRequest> {

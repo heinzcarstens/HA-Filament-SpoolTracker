@@ -19,14 +19,18 @@ model Setting {
 }
 
 model Printer {
-  id           String   @id @default(uuid())
-  name         String
-  haDeviceId   String   @unique @map("ha_device_id")
-  entityPrefix String   @map("entity_prefix")
-  model        String?
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  name               String
+  haDeviceId         String   @unique @map("ha_device_id")
+  entityPrefix       String   @map("entity_prefix")
+  model              String?
+  isActive           Boolean  @default(true) @map("is_active")
+  entityPrintStatus  String?  @map("entity_print_status")
+  entityTaskName     String?  @map("entity_task_name")
+  entityPrintWeight  String?  @map("entity_print_weight")
+  entityCoverImage   String?  @map("entity_cover_image")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   printJobs PrintJob[]
 

@@ -33,6 +33,10 @@ router.post('/printers', async (req: Request, res: Response) => {
         haDeviceId: body.haDeviceId,
         entityPrefix: body.entityPrefix,
         model: body.model,
+        entityPrintStatus: body.entityPrintStatus ?? undefined,
+        entityTaskName: body.entityTaskName ?? undefined,
+        entityPrintWeight: body.entityPrintWeight ?? undefined,
+        entityCoverImage: body.entityCoverImage ?? undefined,
       },
     });
     res.status(201).json(printer);
@@ -55,6 +59,10 @@ router.put('/printers/:id', async (req: Request, res: Response) => {
     if (body.entityPrefix !== undefined) data.entityPrefix = body.entityPrefix;
     if (body.model !== undefined) data.model = body.model;
     if (body.isActive !== undefined) data.isActive = body.isActive;
+    if (body.entityPrintStatus !== undefined) data.entityPrintStatus = body.entityPrintStatus;
+    if (body.entityTaskName !== undefined) data.entityTaskName = body.entityTaskName;
+    if (body.entityPrintWeight !== undefined) data.entityPrintWeight = body.entityPrintWeight;
+    if (body.entityCoverImage !== undefined) data.entityCoverImage = body.entityCoverImage;
 
     const printer = await prisma.printer.update({
       where: { id: req.params.id as string },

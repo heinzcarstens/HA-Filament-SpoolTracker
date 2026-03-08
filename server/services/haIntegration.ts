@@ -130,6 +130,10 @@ function subscribeToStateChanges(): void {
   logger.info('Subscribed to HA state_changed events');
 }
 
+const PRINT_STATUS_STATES = new Set([
+  'running', 'printing', 'idle', 'finish', 'finished', 'completed', 'failed', 'offline', 'unknown', 'unavailable',
+]);
+
 async function handleStateChange(data: {
   entity_id?: string;
   new_state?: Record<string, unknown>;
@@ -138,14 +142,22 @@ async function handleStateChange(data: {
   const { entity_id, new_state, old_state } = data;
   if (!entity_id || !new_state) return;
 
-  const isBambu = entity_id.includes('bambu') ||
-    ((new_state.attributes as Record<string, unknown>)?.manufacturer as string)?.toLowerCase().includes('bambu');
+  if (!entity_id.endsWith('_print_status')) return;
+
+  const state = (new_state.state as string)?.toLowerCase();
+  const manufacturer = ((new_state.attributes as Record<string, unknown>)?.manufacturer as string)?.toLowerCase() ?? '';
+
+  const prefix = entity_id.replace(/^sensor\./, '').replace(/_print_status$/, '');
+  const isBambu =
+    entity_id.toLowerCase().includes('bambu') ||
+    manufacturer.includes('bambu') ||
+    (PRINT_STATUS_STATES.has(state ?? '') && /^(p1|p2|p2s|x1|x1c|a1|a1m|h2|p1s)(_|$)/i.test(prefix));
+
+  logger.debug(`Print status event: entity_id=${entity_id} state=${state} isBambu=${isBambu} prefix=${prefix}`);
 
   if (!isBambu) return;
 
-  if (entity_id.endsWith('_print_status')) {
-    await handlePrintStatusChange(entity_id, new_state, old_state);
-  }
+  await handlePrintStatusChange(entity_id, new_state, old_state);
 }
 
 async function handlePrintStatusChange(
@@ -164,7 +176,7 @@ async function handlePrintStatusChange(
   const printerPrefix = entityId.replace(/_print_status$/, '').replace(/^sensor\./, '');
 
   const isPrinting = newStatus === 'running' || newStatus === 'printing';
-  const isFinished = newStatus === 'finish' || newStatus === 'completed' || newStatus === 'idle';
+  const isFinished = newStatus === 'finish' || newStatus === 'finished' || newStatus === 'completed' || newStatus === 'idle';
   const isFailed = newStatus === 'failed';
   const wasPrinting = oldStatus === 'running' || oldStatus === 'printing';
 
@@ -196,9 +208,12 @@ async function onPrintStarted(
       logger.info(`Auto-registered printer: ${printer.name}`);
     }
 
-    const projectName = await fetchEntityState(`sensor.${printerPrefix}_task_name`) || 'Unknown Print';
-    const printWeight = await fetchEntityState(`sensor.${printerPrefix}_print_weight`);
-    const coverImage = await fetchEntityState(`sensor.${printerPrefix}_cover_image`);
+    const taskNameEntity = printer.entityTaskName ?? `sensor.${printerPrefix}_task_name`;
+    const printWeightEntity = printer.entityPrintWeight ?? `sensor.${printerPrefix}_print_weight`;
+    const coverImageEntity = printer.entityCoverImage ?? `sensor.${printerPrefix}_cover_image`;
+    const projectName = await fetchEntityState(taskNameEntity) || 'Unknown Print';
+    const printWeight = await fetchEntityState(printWeightEntity);
+    const coverImage = await fetchEntityState(coverImageEntity);
 
     const job = await prisma.printJob.create({
       data: {
@@ -236,7 +251,11 @@ async function onPrintFinished(
 
     const status = failed ? 'failed' : 'completed';
 
-    const printWeight = await fetchEntityState(`sensor.${printerPrefix}_print_weight`);
+    const printerRecord = tracked.printerId
+      ? await prisma.printer.findUnique({ where: { id: tracked.printerId } })
+      : await prisma.printer.findFirst({ where: { entityPrefix: { contains: printerPrefix } } });
+    const printWeightEntity = printerRecord?.entityPrintWeight ?? `sensor.${printerPrefix}_print_weight`;
+    const printWeight = await fetchEntityState(printWeightEntity);
     const filamentUsed = printWeight ? parseFloat(printWeight) : null;
 
     const job = await prisma.printJob.update({
