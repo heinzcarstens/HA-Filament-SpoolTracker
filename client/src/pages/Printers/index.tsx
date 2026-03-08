@@ -195,7 +195,7 @@ export default function PrintersPage() {
             const res = await haApi.getEntities();
             return res.data;
           }}
-          onFetchEntityStates={(entityIds) => haApi.getEntityStates(entityIds).then((r) => r.data)}
+          onFetchEntityStates={(ids) => haApi.getEntityStates(ids).then((r) => r.data)}
         />
       )}
 

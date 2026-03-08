@@ -210,10 +210,10 @@ async function onPrintStarted(
 
     const taskNameEntity = printer.entityTaskName ?? `sensor.${printerPrefix}_task_name`;
     const printWeightEntity = printer.entityPrintWeight ?? `sensor.${printerPrefix}_print_weight`;
-    const coverImageEntity = printer.entityCoverImage ?? `sensor.${printerPrefix}_cover_image`;
+    const coverImageEntity = printer.entityCoverImage ?? `image.${printerPrefix}_cover_image`;
     const projectName = await fetchEntityState(taskNameEntity) || 'Unknown Print';
     const printWeight = await fetchEntityState(printWeightEntity);
-    const coverImage = await fetchEntityCoverImageUrl(coverImageEntity);
+    const coverImage = await fetchEntityValue(coverImageEntity, 'entity_picture');
 
     const job = await prisma.printJob.create({
       data: {
@@ -320,21 +320,24 @@ async function fetchEntityState(entityId: string): Promise<string | null> {
   }
 }
 
-/** For cover_image entities, the image URL is in attributes.entity_picture; state is often null. */
-async function fetchEntityCoverImageUrl(entityId: string): Promise<string | null> {
+/** Fetch state or a specific attribute. attribute "state" or omitted = entity state; else attributes[attribute]. */
+async function fetchEntityValue(entityId: string, attribute?: string): Promise<string | null> {
   const token = process.env.SUPERVISOR_TOKEN;
   if (!token) return null;
-
+  const attr = attribute ?? 'state';
   try {
-    const response = await fetch(`http://supervisor/core/api/states/${entityId}`, {
+    const normalized = entityId.toLowerCase();
+    const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(normalized)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return null;
-    const data = await response.json() as { state?: string; attributes?: { entity_picture?: string } };
-    const picture = data.attributes?.entity_picture;
-    if (picture) return picture;
-    const state = data.state;
-    return state === 'unknown' || state === 'unavailable' || state === undefined ? null : state;
+    const data = await response.json() as { state?: string; attributes?: Record<string, unknown> };
+    if (attr === 'state') {
+      const state = data.state;
+      return state === 'unknown' || state === 'unavailable' || state === undefined ? null : (state ?? null);
+    }
+    const v = data.attributes?.[attr];
+    return typeof v === 'string' ? v : (v != null ? String(v) : null);
   } catch {
     return null;
   }

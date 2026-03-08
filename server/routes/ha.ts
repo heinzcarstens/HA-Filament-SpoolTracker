@@ -92,62 +92,57 @@ router.get('/ha/entities', async (_req: Request, res: Response) => {
   }
 });
 
-/** GET /ha/entities/states?ids=entity1,entity2 returns { [entity_id]: state } for each */
+/**
+ * GET /ha/entities/states?ids=id1,id2[entity_picture],id3
+ * Returns { [request_key]: value }. Use id[attribute] to get attributes[attribute] instead of state.
+ * Example: sensor.x_cover_image[entity_picture] -> entity_picture attribute of that entity.
+ */
+function parseIdAndAttribute(requestKey: string): { entityId: string; attribute: string } {
+  const bracket = requestKey.indexOf('[');
+  if (bracket === -1) {
+    return { entityId: requestKey, attribute: 'state' };
+  }
+  const entityId = requestKey.slice(0, bracket).trim();
+  const attr = requestKey.slice(bracket + 1).replace(/]\s*$/, '').trim();
+  return { entityId, attribute: attr || 'state' };
+}
+
 router.get('/ha/entities/states', async (req: Request, res: Response) => {
   try {
     const supervisorToken = process.env.SUPERVISOR_TOKEN;
     const idsParam = typeof req.query.ids === 'string' ? req.query.ids : '';
-    const entityIds = idsParam.split(',').map((id) => id.trim()).filter(Boolean);
-    if (!supervisorToken || entityIds.length === 0) {
+    const requestKeys = idsParam.split(',').map((id) => id.trim()).filter(Boolean);
+    if (!supervisorToken || requestKeys.length === 0) {
       return res.json({});
     }
 
     const results: Record<string, string | null> = {};
     await Promise.all(
-      entityIds.map(async (entityId) => {
+      requestKeys.map(async (requestKey) => {
         try {
-          const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(entityId)}`, {
+          const { entityId, attribute: attr } = parseIdAndAttribute(requestKey);
+          const fetchId = entityId.toLowerCase();
+          const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(fetchId)}`, {
             headers: { Authorization: `Bearer ${supervisorToken}` },
           });
           if (!response.ok) {
-            results[entityId] = null;
+            results[requestKey] = null;
             return;
           }
           const raw = await response.json() as Record<string, unknown>;
-          // Supervisor proxy may wrap: unwrap if needed
           const data = (raw.data as Record<string, unknown>) ?? raw;
           const state = data.state as string | undefined;
-          const attributes = data.attributes as Record<string, unknown> | undefined;
-          // Cover image entity: image URL is in attributes (key name varies by integration)
-          if (entityId.endsWith('_cover_image')) {
-            const attrs = attributes ?? {};
-            let picture = (attrs.entity_picture as string) ?? (attrs['Entity picture'] as string);
-            if (!picture && typeof attrs === 'object') {
-              for (const v of Object.values(attrs)) {
-                if (typeof v === 'string' && (v.startsWith('/') || v.includes('image') || v.includes('picture'))) {
-                  picture = v;
-                  break;
-                }
-                if (v && typeof v === 'object' && !Array.isArray(v)) {
-                  const obj = v as Record<string, unknown>;
-                  const u = obj.url ?? obj.entity_picture ?? obj.entityPicture;
-                  if (typeof u === 'string') {
-                    picture = u;
-                    break;
-                  }
-                }
-              }
-            }
-            if (!picture && process.env.LOG_LEVEL === 'debug' && Object.keys(attrs).length > 0) {
-              logger.debug(`cover_image entity ${entityId} attributes keys: ${Object.keys(attrs).join(', ')}`);
-            }
-            results[entityId] = picture ?? (state && state !== 'unknown' && state !== 'unavailable' ? state : null);
-            return;
+          const attributes = (data.attributes as Record<string, unknown>) ?? {};
+          let value: string | null;
+          if (attr === 'state') {
+            value = state === 'unknown' || state === 'unavailable' || state === undefined ? null : (state ?? null);
+          } else {
+            const v = attributes[attr];
+            value = typeof v === 'string' ? v : (v != null ? String(v) : null);
           }
-          results[entityId] =
-            state === 'unknown' || state === 'unavailable' || state === undefined ? null : (state ?? null);
+          results[requestKey] = value;
         } catch {
-          results[entityId] = null;
+          results[requestKey] = null;
         }
       })
     );

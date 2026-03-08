@@ -9,6 +9,20 @@ const ENTITY_SUFFIXES = {
   entityCoverImage: '_cover_image',
 } as const;
 
+/** Default domain and attribute per monitored entity (Bambu: cover_image is image entity, attribute entity_picture). */
+const ENTITY_DEFAULT_DOMAIN: Record<string, string> = {
+  [ENTITY_SUFFIXES.entityPrintStatus]: 'sensor',
+  [ENTITY_SUFFIXES.entityTaskName]: 'sensor',
+  [ENTITY_SUFFIXES.entityPrintWeight]: 'sensor',
+  [ENTITY_SUFFIXES.entityCoverImage]: 'image',
+};
+const ENTITY_ATTRIBUTE: Record<string, string> = {
+  [ENTITY_SUFFIXES.entityPrintStatus]: 'state',
+  [ENTITY_SUFFIXES.entityTaskName]: 'state',
+  [ENTITY_SUFFIXES.entityPrintWeight]: 'state',
+  [ENTITY_SUFFIXES.entityCoverImage]: 'entity_picture',
+};
+
 export type EditPrinterSaveData = {
   name: string;
   entityPrefix: string;
@@ -26,7 +40,7 @@ interface EditPrinterModalProps {
   onClose: () => void;
   onDiscover?: () => Promise<HADiscoveredEntity[]>;
   /** Optional: fetch current HA state for entity IDs. Used to show "current value" in monitored entities. */
-  onFetchEntityStates?: (entityIds: string[]) => Promise<Record<string, string | null>>;
+  onFetchEntityStates?: (ids: string[]) => Promise<Record<string, string | null>>;
 }
 
 function pickEntityBySuffix(entities: string[], suffix: string): string | null {
@@ -59,36 +73,48 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
   }, [printer]);
 
   const prefix = entityPrefix.trim();
-  const derived = (suffix: string) => (prefix ? `sensor.${prefix}${suffix}` : '—');
+  const defaultEntityId = (suffix: string) =>
+    prefix ? `${ENTITY_DEFAULT_DOMAIN[suffix] ?? 'sensor'}.${prefix}${suffix}` : '';
+  const effectiveEntity = (override: string, suffix: string) =>
+    override.trim() ? override.trim() : defaultEntityId(suffix);
 
-  const effectiveEntity = (
-    override: string,
-    suffix: string,
-  ) => (override.trim() ? override.trim() : (prefix ? `sensor.${prefix}${suffix}` : ''));
+  /** Request key for API and display: entity_id or entity_id[attribute] (e.g. image.x_cover_image[entity_picture]). */
+  const getRequestKey = (override: string, suffix: string) => {
+    const id = effectiveEntity(override, suffix) || defaultEntityId(suffix);
+    if (!id) return '';
+    const attr = ENTITY_ATTRIBUTE[suffix];
+    return attr === 'state' ? id : `${id}[${attr}]`;
+  };
 
-  const getEffectiveIds = useCallback(() => {
-    const p = entityPrefix.trim();
-    const e = (o: string, s: string) => (o.trim() ? o.trim() : p ? `sensor.${p}${s}` : '');
+  /** Default request key for placeholder / display when no override (includes [attribute] when not state). */
+  const defaultRequestKey = (suffix: string) => {
+    const id = defaultEntityId(suffix);
+    if (!id) return '—';
+    const attr = ENTITY_ATTRIBUTE[suffix];
+    return attr === 'state' ? id : `${id}[${attr}]`;
+  };
+
+  const getRequestIds = useCallback(() => {
     return [
-      e(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || (p ? `sensor.${p}${ENTITY_SUFFIXES.entityPrintStatus}` : ''),
-      e(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || (p ? `sensor.${p}${ENTITY_SUFFIXES.entityTaskName}` : ''),
-      e(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || (p ? `sensor.${p}${ENTITY_SUFFIXES.entityPrintWeight}` : ''),
-      e(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || (p ? `sensor.${p}${ENTITY_SUFFIXES.entityCoverImage}` : ''),
+      getRequestKey(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus),
+      getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName),
+      getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight),
+      getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage),
     ].filter(Boolean) as string[];
   }, [entityPrefix, entityPrintStatus, entityTaskName, entityPrintWeight, entityCoverImage]);
 
   const fetchEntityStates = useCallback(() => {
-    const ids = getEffectiveIds();
+    const ids = getRequestIds();
     if (!onFetchEntityStates || ids.length === 0) return;
     setEntityStatesLoading(true);
     onFetchEntityStates(ids)
       .then((data) => setEntityStates(data))
       .catch(() => setEntityStates({}))
       .finally(() => setEntityStatesLoading(false));
-  }, [onFetchEntityStates, getEffectiveIds]);
+  }, [onFetchEntityStates, getRequestIds]);
 
   useEffect(() => {
-    if (onFetchEntityStates && getEffectiveIds().length > 0) fetchEntityStates();
+    if (onFetchEntityStates && getRequestIds().length > 0) fetchEntityStates();
     else setEntityStates({});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch only when modal opens for this printer
   }, [printer.id]);
@@ -120,7 +146,7 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
         setDiscovering(false);
         return;
       }
-      const defaultId = (suffix: string) => (prefix ? `sensor.${prefix}${suffix}` : '');
+      const defaultId = (suffix: string) => (prefix ? `${ENTITY_DEFAULT_DOMAIN[suffix] ?? 'sensor'}.${prefix}${suffix}` : '');
       const setOverride = (
         discovered: string | null,
         suffix: string,
@@ -147,9 +173,17 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintWeight),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityCoverImage),
         ];
-        const effectiveIds = ids.map((def, i) => overrides[i] && overrides[i] !== def ? overrides[i]! : def).filter(Boolean);
-        if (effectiveIds.length > 0) {
-          onFetchEntityStates(effectiveIds).then((data) => setEntityStates(data)).catch(() => {});
+        const suffixes = [ENTITY_SUFFIXES.entityPrintStatus, ENTITY_SUFFIXES.entityTaskName, ENTITY_SUFFIXES.entityPrintWeight, ENTITY_SUFFIXES.entityCoverImage];
+        const requestIds = suffixes
+          .map((s, i) => {
+            const effectiveId = overrides[i] || ids[i];
+            if (!effectiveId) return '';
+            const attr = ENTITY_ATTRIBUTE[s];
+            return attr === 'state' ? effectiveId : `${effectiveId}[${attr}]`;
+          })
+          .filter(Boolean);
+        if (requestIds.length > 0) {
+          onFetchEntityStates(requestIds).then((data) => setEntityStates(data)).catch(() => {});
         }
       }
     } catch (err) {
@@ -245,11 +279,11 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                 <span className="monitored-entity-label">Print status</span>
                 <div className="monitored-entity-effective-line">
                   <code className="monitored-entity-effective">
-                    {effectiveEntity(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || derived(ENTITY_SUFFIXES.entityPrintStatus)}
+                    {getRequestKey(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintStatus)}
                   </code>
-                  {(effectiveEntity(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || (prefix && `sensor.${prefix}${ENTITY_SUFFIXES.entityPrintStatus}`)) && (
+                  {(getRequestKey(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintStatus) !== '—') && (
                     <span className="monitored-entity-current">
-                      · Current value: {entityStatesLoading ? '…' : (entityStates[effectiveEntity(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus) || `sensor.${prefix}${ENTITY_SUFFIXES.entityPrintStatus}`] ?? '—')}
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus)] ?? '—')}
                     </span>
                   )}
                 </div>
@@ -257,7 +291,7 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                   type="text"
                   value={entityPrintStatus}
                   onChange={(e) => setEntityPrintStatus(e.target.value)}
-                  placeholder={derived(ENTITY_SUFFIXES.entityPrintStatus)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityPrintStatus)}
                   className="monitored-entity-override"
                 />
               </div>
@@ -265,11 +299,11 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                 <span className="monitored-entity-label">Task name</span>
                 <div className="monitored-entity-effective-line">
                   <code className="monitored-entity-effective">
-                    {effectiveEntity(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || derived(ENTITY_SUFFIXES.entityTaskName)}
+                    {getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || defaultRequestKey(ENTITY_SUFFIXES.entityTaskName)}
                   </code>
-                  {(effectiveEntity(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || (prefix && `sensor.${prefix}${ENTITY_SUFFIXES.entityTaskName}`)) && (
+                  {(getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || defaultRequestKey(ENTITY_SUFFIXES.entityTaskName) !== '—') && (
                     <span className="monitored-entity-current">
-                      · Current value: {entityStatesLoading ? '…' : (entityStates[effectiveEntity(entityTaskName, ENTITY_SUFFIXES.entityTaskName) || `sensor.${prefix}${ENTITY_SUFFIXES.entityTaskName}`] ?? '—')}
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName)] ?? '—')}
                     </span>
                   )}
                 </div>
@@ -277,7 +311,7 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                   type="text"
                   value={entityTaskName}
                   onChange={(e) => setEntityTaskName(e.target.value)}
-                  placeholder={derived(ENTITY_SUFFIXES.entityTaskName)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityTaskName)}
                   className="monitored-entity-override"
                 />
               </div>
@@ -285,11 +319,11 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                 <span className="monitored-entity-label">Print weight</span>
                 <div className="monitored-entity-effective-line">
                   <code className="monitored-entity-effective">
-                    {effectiveEntity(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || derived(ENTITY_SUFFIXES.entityPrintWeight)}
+                    {getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintWeight)}
                   </code>
-                  {(effectiveEntity(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || (prefix && `sensor.${prefix}${ENTITY_SUFFIXES.entityPrintWeight}`)) && (
+                  {(getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintWeight) !== '—') && (
                     <span className="monitored-entity-current">
-                      · Current value: {entityStatesLoading ? '…' : (entityStates[effectiveEntity(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight) || `sensor.${prefix}${ENTITY_SUFFIXES.entityPrintWeight}`] ?? '—')}
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight)] ?? '—')}
                     </span>
                   )}
                 </div>
@@ -297,7 +331,7 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                   type="text"
                   value={entityPrintWeight}
                   onChange={(e) => setEntityPrintWeight(e.target.value)}
-                  placeholder={derived(ENTITY_SUFFIXES.entityPrintWeight)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityPrintWeight)}
                   className="monitored-entity-override"
                 />
               </div>
@@ -305,11 +339,11 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                 <span className="monitored-entity-label">Cover image</span>
                 <div className="monitored-entity-effective-line">
                   <code className="monitored-entity-effective">
-                    {effectiveEntity(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || derived(ENTITY_SUFFIXES.entityCoverImage)}
+                    {getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || defaultRequestKey(ENTITY_SUFFIXES.entityCoverImage)}
                   </code>
-                  {(effectiveEntity(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || (prefix && `sensor.${prefix}${ENTITY_SUFFIXES.entityCoverImage}`)) && (
+                  {(getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || defaultRequestKey(ENTITY_SUFFIXES.entityCoverImage) !== '—') && (
                     <span className="monitored-entity-current">
-                      · Current value: {entityStatesLoading ? '…' : (entityStates[effectiveEntity(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage) || `sensor.${prefix}${ENTITY_SUFFIXES.entityCoverImage}`] ?? '—')}
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage)] ?? '—')}
                     </span>
                   )}
                 </div>
@@ -317,7 +351,7 @@ export default function EditPrinterModal({ printer, onSave, onClose, onDiscover,
                   type="text"
                   value={entityCoverImage}
                   onChange={(e) => setEntityCoverImage(e.target.value)}
-                  placeholder={derived(ENTITY_SUFFIXES.entityCoverImage)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityCoverImage)}
                   className="monitored-entity-override"
                 />
               </div>

@@ -96,10 +96,10 @@ export const dashboardApi = {
 export const haApi = {
   getStatus: () => api.get<HAConnectionStatus>('/ha/status'),
   getEntities: () => api.get<HADiscoveredEntity[]>('/ha/entities'),
-  /** Fetch current state for given entity IDs. Returns { [entity_id]: state } (null if unavailable). */
-  getEntityStates: (entityIds: string[]) =>
+  /** Fetch state or attribute. Use id[attribute] in ids for an attribute (e.g. image.x_cover_image[entity_picture]). */
+  getEntityStates: (ids: string[]) =>
     api.get<Record<string, string | null>>('/ha/entities/states', {
-      params: { ids: entityIds.filter(Boolean).join(',') },
+      params: { ids: ids.filter(Boolean).join(',') },
     }),
 };
 
