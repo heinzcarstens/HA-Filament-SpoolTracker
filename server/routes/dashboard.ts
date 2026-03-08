@@ -12,10 +12,11 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
   try {
     const lowFilamentThreshold = 100; // grams, TODO: read from settings
 
-    const [totalSpools, activeSpools, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools, activeSpoolsList] =
+    const [totalSpools, activeSpools, registeredPrinters, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools, activeSpoolsList] =
       await Promise.all([
         prisma.spool.count({ where: { isArchived: false } }),
         prisma.spool.count({ where: { isActive: true, isArchived: false } }),
+        prisma.printer.count({ where: { isActive: true } }),
         prisma.printJob.count({ where: { status: 'in_progress' } }),
         prisma.printJob.findMany({
           include: { printer: true, spool: true },
@@ -45,6 +46,7 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
       totalSpools,
       activeSpools,
       totalFilamentStock,
+      registeredPrinters,
       activePrintJobs,
       lowFilamentAlerts: lowFilamentSpools.length,
       recentPrintJobs,

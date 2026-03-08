@@ -3,6 +3,7 @@ import './TabNav.css';
 export interface Tab {
   id: string;
   label: string;
+  path?: string;
 }
 
 interface TabNavProps {

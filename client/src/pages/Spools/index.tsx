@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { spoolsApi } from '@services/api';
 import type { Spool, SpoolCreateRequest } from '@ha-addon/types';
 import SpoolCard from '@components/SpoolCard';
@@ -14,6 +15,7 @@ export default function SpoolsPage() {
   const [filter, setFilter] = useState<SpoolFilter>('all');
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSpool, setEditingSpool] = useState<Spool | null>(null);
   const [deductingSpool, setDeductingSpool] = useState<Spool | null>(null);
@@ -133,6 +135,7 @@ export default function SpoolsPage() {
               onArchive={handleArchive}
               onDelete={(s) => setDeletingSpool(s)}
               onActivate={handleActivate}
+              onNameClick={(s) => navigate(`/spools/${s.id}`)}
             />
           ))}
         </div>

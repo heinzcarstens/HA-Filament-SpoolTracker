@@ -1,37 +1,75 @@
 import { useState, useEffect, useCallback } from 'react';
-import { printJobsApi, spoolsApi } from '@services/api';
-import type { PrintJob, Spool } from '@ha-addon/types';
+import { printJobsApi, spoolsApi, printersApi } from '@services/api';
+import type { PrintJob, Spool, Printer, PrintJobStatus } from '@ha-addon/types';
 import PrintJobCard from '@components/PrintJobCard';
+import AddPrintJobModal from '@modals/AddPrintJobModal';
+import ConfirmModal from '@modals/ConfirmModal';
 import './index.css';
+
+const PAGE_SIZE = 20;
 
 export default function PrintHistoryPage() {
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [spools, setSpools] = useState<Spool[]>([]);
+  const [printers, setPrinters] = useState<Printer[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [assigningJob, setAssigningJob] = useState<PrintJob | null>(null);
   const [selectedSpoolId, setSelectedSpoolId] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deletingJob, setDeletingJob] = useState<PrintJob | null>(null);
 
-  const fetchJobs = useCallback(async () => {
-    try {
-      const params: Record<string, string | number> = {};
-      if (statusFilter) params.status = statusFilter;
-      const response = await printJobsApi.getAll(params);
-      setJobs(response.data);
-    } catch (err) {
-      console.error('Failed to fetch print jobs:', err);
-    } finally {
-      setLoading(false);
+  const fetchPage = useCallback(async (offset: number, append: boolean) => {
+    const params: Record<string, string | number> = { limit: PAGE_SIZE, offset };
+    if (statusFilter) params.status = statusFilter;
+    const response = await printJobsApi.getAll(params);
+    const data = response.data;
+    if (append) {
+      setJobs((prev) => [...prev, ...data]);
+    } else {
+      setJobs(data);
     }
+    setHasMore(data.length === PAGE_SIZE);
+    return data;
   }, [statusFilter]);
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    setJobs([]);
+    setHasMore(true);
+    let cancelled = false;
+    setLoading(true);
+    const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: 0 };
+    if (statusFilter) params.status = statusFilter;
+    printJobsApi.getAll(params)
+      .then((res) => {
+        if (!cancelled) {
+          setJobs(res.data);
+          setHasMore(res.data.length === PAGE_SIZE);
+        }
+      })
+      .catch((err) => { if (!cancelled) console.error('Failed to fetch print jobs:', err); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [statusFilter]);
+
+  const loadMore = useCallback(() => {
+    setLoadingMore(true);
+    fetchPage(jobs.length, true)
+      .catch((err) => console.error('Failed to fetch more print jobs:', err))
+      .finally(() => setLoadingMore(false));
+  }, [fetchPage, jobs.length]);
 
   useEffect(() => {
     spoolsApi.getAll().then((r) => setSpools(r.data)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (showAddModal) {
+      printersApi.getAll().then((r) => setPrinters(r.data)).catch(() => {});
+    }
+  }, [showAddModal]);
 
   const handleAssignSpool = async () => {
     if (!assigningJob || !selectedSpoolId) return;
@@ -39,9 +77,53 @@ export default function PrintHistoryPage() {
       await printJobsApi.update(assigningJob.id, { spoolId: selectedSpoolId });
       setAssigningJob(null);
       setSelectedSpoolId('');
-      fetchJobs();
+      setJobs([]);
+      setHasMore(true);
+      setLoading(true);
+      printJobsApi.getAll({ limit: PAGE_SIZE, offset: 0, ...(statusFilter && { status: statusFilter }) })
+        .then((res) => {
+          setJobs(res.data);
+          setHasMore(res.data.length === PAGE_SIZE);
+        })
+        .finally(() => setLoading(false));
     } catch (err) {
       console.error('Failed to assign spool:', err);
+    }
+  };
+
+  const handleAddPrint = async (data: {
+    projectName: string;
+    printerId?: string | null;
+    spoolId?: string | null;
+    filamentUsed?: number | null;
+    status: PrintJobStatus;
+    notes?: string | null;
+  }) => {
+    try {
+      await printJobsApi.create(data);
+      setShowAddModal(false);
+      setJobs([]);
+      setHasMore(true);
+      setLoading(true);
+      printJobsApi.getAll({ limit: PAGE_SIZE, offset: 0, ...(statusFilter && { status: statusFilter }) })
+        .then((res) => {
+          setJobs(res.data);
+          setHasMore(res.data.length === PAGE_SIZE);
+        })
+        .finally(() => setLoading(false));
+    } catch (err) {
+      console.error('Failed to add print job:', err);
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!deletingJob) return;
+    try {
+      await printJobsApi.delete(deletingJob.id);
+      setJobs((prev) => prev.filter((j) => j.id !== deletingJob.id));
+      setDeletingJob(null);
+    } catch (err) {
+      console.error('Failed to delete print job:', err);
     }
   };
 
@@ -56,9 +138,14 @@ export default function PrintHistoryPage() {
 
   return (
     <div className="print-history-page">
-      <div className="page-header">
-        <h2 className="page-title">Print History</h2>
-        <p className="page-subtitle">View and manage print jobs logged from your Bambu Lab printers</p>
+      <div className="page-header page-header-with-action">
+        <div>
+          <h2 className="page-title">Print History</h2>
+          <p className="page-subtitle">View and manage print jobs logged from your Bambu Lab printers</p>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
+          Add print manually
+        </button>
       </div>
 
       <div className="history-filters">
@@ -78,18 +165,41 @@ export default function PrintHistoryPage() {
       ) : jobs.length === 0 ? (
         <div className="empty-state">
           <h3>No prints recorded yet</h3>
-          <p>Print jobs will appear here automatically when detected from your Bambu Lab printers via Home Assistant.</p>
+          <p>Print jobs appear here when detected from Bambu Lab via Home Assistant, or use <strong>Add print manually</strong> when HA is not connected.</p>
         </div>
       ) : (
-        <div className="print-jobs-list">
-          {jobs.map((job) => (
-            <PrintJobCard
-              key={job.id}
-              job={job}
-              onAssignSpool={(j) => { setAssigningJob(j); setSelectedSpoolId(''); }}
-            />
-          ))}
-        </div>
+        <>
+          <div className="print-jobs-list">
+            {jobs.map((job) => (
+              <PrintJobCard
+                key={job.id}
+                job={job}
+                onAssignSpool={(j) => { setAssigningJob(j); setSelectedSpoolId(''); }}
+                onDelete={(j) => setDeletingJob(j)}
+              />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="load-more-row">
+              <button
+                className="btn btn-secondary"
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {showAddModal && (
+        <AddPrintJobModal
+          printers={printers}
+          spools={spools}
+          onSave={handleAddPrint}
+          onClose={() => setShowAddModal(false)}
+        />
       )}
 
       {assigningJob && (
@@ -119,6 +229,16 @@ export default function PrintHistoryPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {deletingJob && (
+        <ConfirmModal
+          title="Delete print job"
+          message={`Delete "${deletingJob.projectName}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleDeleteJob}
+          onCancel={() => setDeletingJob(null)}
+        />
       )}
     </div>
   );

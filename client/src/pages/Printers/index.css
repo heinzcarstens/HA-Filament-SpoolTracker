@@ -22,7 +22,9 @@
   padding: var(--spacing-md) var(--spacing-lg);
 }
 
-.ha-connection-bar .btn {
+.ha-connection-bar-actions {
+  display: flex;
+  gap: var(--spacing-sm);
   margin-left: auto;
 }
 
@@ -101,6 +103,8 @@
 
 .printer-card-actions {
   flex-shrink: 0;
+  display: flex;
+  gap: var(--spacing-xs);
 }
 
 .printers-empty {

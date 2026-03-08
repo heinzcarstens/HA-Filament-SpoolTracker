@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { PrintJob } from '@ha-addon/types';
 import StatusBadge from './StatusBadge';
 import './PrintJobCard.css';
@@ -5,9 +6,10 @@ import './PrintJobCard.css';
 interface PrintJobCardProps {
   job: PrintJob;
   onAssignSpool?: (job: PrintJob) => void;
+  onDelete?: (job: PrintJob) => void;
 }
 
-export default function PrintJobCard({ job, onAssignSpool }: PrintJobCardProps) {
+export default function PrintJobCard({ job, onAssignSpool, onDelete }: PrintJobCardProps) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -26,14 +28,29 @@ export default function PrintJobCard({ job, onAssignSpool }: PrintJobCardProps) 
       <div className="print-job-info">
         <div className="print-job-header">
           <h4 className="print-job-name">{job.projectName}</h4>
-          <StatusBadge status={job.status} />
+          <div className="print-job-header-actions">
+            <StatusBadge status={job.status} />
+            {onDelete && (
+              <button
+                type="button"
+                className="print-job-delete-btn"
+                onClick={() => onDelete(job)}
+                title="Delete print job"
+                aria-label="Delete print job"
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
         <div className="print-job-meta">
           {job.printer && <span className="meta-item">Printer: {job.printer.name}</span>}
           {job.spool ? (
             <span className="meta-item">
               <span className="spool-dot" style={{ backgroundColor: job.spool.colorHex || job.spool.color }} />
-              {job.spool.name}
+              <Link to={`/spools/${job.spool.id}`} className="print-job-spool-link">
+                {job.spool.name}
+              </Link>
             </span>
           ) : (
             job.status === 'completed' && onAssignSpool && (

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { printersApi, haApi } from '@services/api';
 import type { Printer, HAConnectionStatus, HADiscoveredEntity } from '@ha-addon/types';
+import EditPrinterModal from '@modals/EditPrinterModal';
+import AddPrinterModal from '@modals/AddPrinterModal';
+import ConfirmModal from '@modals/ConfirmModal';
 import './index.css';
 
 export default function PrintersPage() {
@@ -8,6 +11,9 @@ export default function PrintersPage() {
   const [haStatus, setHaStatus] = useState<HAConnectionStatus | null>(null);
   const [discoveredEntities, setDiscoveredEntities] = useState<HADiscoveredEntity[]>([]);
   const [discovering, setDiscovering] = useState(false);
+  const [editingPrinter, setEditingPrinter] = useState<Printer | null>(null);
+  const [deletingPrinter, setDeletingPrinter] = useState<Printer | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     const loadAll = async () => {
@@ -52,10 +58,40 @@ export default function PrintersPage() {
     }
   };
 
-  const handleDeletePrinter = async (id: string) => {
+  const handleAddPrinter = async (data: { name: string; entityPrefix: string; model?: string }) => {
     try {
-      await printersApi.delete(id);
-      setPrinters((prev) => prev.filter((p) => p.id !== id));
+      const prefix = data.entityPrefix.trim();
+      await printersApi.create({
+        name: data.name.trim() || prefix.replace(/_/g, ' '),
+        haDeviceId: prefix,
+        entityPrefix: prefix,
+        model: data.model,
+      });
+      const res = await printersApi.getAll();
+      setPrinters(res.data);
+      setShowAddModal(false);
+    } catch (err) {
+      console.error('Failed to add printer:', err);
+    }
+  };
+
+  const handleSaveEdit = async (data: { name: string; entityPrefix: string; model?: string }) => {
+    if (!editingPrinter) return;
+    try {
+      const res = await printersApi.update(editingPrinter.id, data);
+      setPrinters((prev) => prev.map((p) => (p.id === editingPrinter.id ? res.data : p)));
+      setEditingPrinter(null);
+    } catch (err) {
+      console.error('Failed to update printer:', err);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingPrinter) return;
+    try {
+      await printersApi.delete(deletingPrinter.id);
+      setPrinters((prev) => prev.filter((p) => p.id !== deletingPrinter.id));
+      setDeletingPrinter(null);
     } catch (err) {
       console.error('Failed to delete printer:', err);
     }
@@ -77,9 +113,14 @@ export default function PrintersPage() {
           {haStatus?.connected && (
             <span className="ha-detected">{haStatus.printerCount} printer(s) detected</span>
           )}
-          <button className="btn btn-primary btn-sm" onClick={handleDiscoverEntities} disabled={discovering}>
-            {discovering ? 'Discovering...' : 'Discover Printers'}
-          </button>
+          <div className="ha-connection-bar-actions">
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowAddModal(true)}>
+              Add printer manually
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={handleDiscoverEntities} disabled={discovering}>
+              {discovering ? 'Discovering...' : 'Discover Printers'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -96,7 +137,10 @@ export default function PrintersPage() {
                   <span className="printer-card-entity">{printer.entityPrefix}</span>
                 </div>
                 <div className="printer-card-actions">
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDeletePrinter(printer.id)}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingPrinter(printer)}>
+                    Edit
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => setDeletingPrinter(printer)}>
                     Remove
                   </button>
                 </div>
@@ -131,8 +175,32 @@ export default function PrintersPage() {
 
       {printers.length === 0 && unregistered.length === 0 && (
         <div className="printers-empty">
-          <p>No printers found. Click "Discover Printers" to find Bambu Lab printers from Home Assistant.</p>
+          <p>No printers yet. Use <strong>Discover Printers</strong> when HA is connected, or <strong>Add printer manually</strong> for dev or when HA is not available.</p>
         </div>
+      )}
+
+      {showAddModal && (
+        <AddPrinterModal
+          onSave={handleAddPrinter}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {editingPrinter && (
+        <EditPrinterModal
+          printer={editingPrinter}
+          onSave={handleSaveEdit}
+          onClose={() => setEditingPrinter(null)}
+        />
+      )}
+
+      {deletingPrinter && (
+        <ConfirmModal
+          title="Remove Printer"
+          message={`Remove "${deletingPrinter.name}"? Print jobs linked to this printer will keep their history but won't be associated with a printer anymore.`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeletingPrinter(null)}
+        />
       )}
     </div>
   );

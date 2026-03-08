@@ -10,6 +10,17 @@
   gap: 4px;
 }
 
+.page-header-with-action {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.page-header-with-action .btn {
+  flex-shrink: 0;
+}
+
 .history-filters {
   display: flex;
   gap: var(--spacing-xs);
@@ -41,4 +52,10 @@
   margin: 0;
   max-width: 400px;
   margin-inline: auto;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-lg) 0;
 }

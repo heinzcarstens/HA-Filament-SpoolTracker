@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dashboardApi } from '@services/api';
 import type { DashboardStats } from '@ha-addon/types';
 import PrintJobCard from '@components/PrintJobCard';
@@ -6,6 +7,7 @@ import ProgressBar from '@components/ProgressBar';
 import './index.css';
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,8 +53,12 @@ export default function DashboardPage() {
 
       <div className="stats-grid">
         <div className="stat-card">
+          <span className="stat-value">{stats.registeredPrinters}</span>
+          <span className="stat-label">Printers</span>
+        </div>
+        <div className="stat-card">
           <span className="stat-value">{stats.totalSpools}</span>
-          <span className="stat-label">Total Spools</span>
+          <span className="stat-label">Spools</span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{(stats.totalFilamentStock / 1000).toFixed(1)}kg</span>
@@ -60,11 +66,11 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <span className="stat-value">{stats.activePrintJobs}</span>
-          <span className="stat-label">Active Prints</span>
+          <span className="stat-label">Printing Now</span>
         </div>
         <div className={`stat-card ${stats.lowFilamentAlerts > 0 ? 'stat-warning' : ''}`}>
           <span className="stat-value">{stats.lowFilamentAlerts}</span>
-          <span className="stat-label">Low Filament Alerts</span>
+          <span className="stat-label">Low Filament</span>
         </div>
       </div>
 
@@ -73,7 +79,12 @@ export default function DashboardPage() {
           <h3 className="section-title">Active Spools</h3>
           <div className="active-spools-grid">
             {stats.activeSpoolsList.map((spool) => (
-              <div key={spool.id} className="active-spool-card">
+              <button
+                key={spool.id}
+                type="button"
+                className="active-spool-card active-spool-card-clickable"
+                onClick={() => navigate(`/spools/${spool.id}`)}
+              >
                 <div className="active-spool-header">
                   <span className="active-spool-dot" style={{ backgroundColor: spool.colorHex || spool.color }} />
                   <div className="active-spool-info">
@@ -86,7 +97,7 @@ export default function DashboardPage() {
                   <span className="active-spool-total"> / {Math.round(spool.initialWeight)}g</span>
                 </div>
                 <ProgressBar value={spool.remainingWeight} max={spool.initialWeight} size="sm" />
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -97,7 +108,12 @@ export default function DashboardPage() {
           <h3 className="section-title">Low Filament Warnings</h3>
           <div className="low-filament-list">
             {stats.lowFilamentSpools.map((spool) => (
-              <div key={spool.id} className="low-filament-item">
+              <button
+                key={spool.id}
+                type="button"
+                className="low-filament-item low-filament-item-clickable"
+                onClick={() => navigate(`/spools/${spool.id}`)}
+              >
                 <div className="low-filament-info">
                   <span className="spool-dot-inline" style={{ backgroundColor: spool.colorHex || spool.color }} />
                   <span className="low-filament-name">{spool.name}</span>
@@ -107,7 +123,7 @@ export default function DashboardPage() {
                   <ProgressBar value={spool.remainingWeight} max={spool.initialWeight} size="sm" />
                   <span className="low-filament-weight">{Math.round(spool.remainingWeight)}g</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

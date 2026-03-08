@@ -85,6 +85,17 @@
   gap: var(--spacing-sm);
 }
 
+.active-spool-card-clickable {
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.active-spool-card-clickable:hover {
+  border-color: var(--accent-primary);
+  filter: brightness(1.05);
+}
+
 .active-spool-header {
   display: flex;
   align-items: center;
@@ -149,6 +160,17 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+.low-filament-item-clickable {
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  width: 100%;
+}
+
+.low-filament-item-clickable:hover {
+  border-color: var(--accent-primary);
 }
 
 .low-filament-info {

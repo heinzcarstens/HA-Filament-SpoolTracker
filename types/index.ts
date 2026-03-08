@@ -91,6 +91,16 @@ export interface PrinterUpdateRequest extends Partial<PrinterCreateRequest> {
   isActive?: boolean;
 }
 
+export interface PrintJobCreateRequest {
+  projectName: string;
+  printerId?: string | null;
+  spoolId?: string | null;
+  projectImage?: string | null;
+  filamentUsed?: number | null;
+  status?: PrintJobStatus;
+  notes?: string | null;
+}
+
 export interface PrintJobUpdateRequest {
   spoolId?: string | null;
   status?: PrintJobStatus;
@@ -107,6 +117,7 @@ export interface DashboardStats {
   totalSpools: number;
   activeSpools: number;
   totalFilamentStock: number;
+  registeredPrinters: number;
   activePrintJobs: number;
   lowFilamentAlerts: number;
   recentPrintJobs: PrintJob[];

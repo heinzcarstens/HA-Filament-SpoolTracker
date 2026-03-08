@@ -1,29 +1,78 @@
 import { Router, Request, Response } from 'express';
 import { getPrismaClient } from '../database';
 import { LOG } from '../utils/logger';
-import type { PrintJobUpdateRequest } from '@ha-addon/types';
+import type { PrintJobCreateRequest, PrintJobUpdateRequest } from '@ha-addon/types';
 
 const logger = LOG('PRINT_JOBS');
 const router: Router = Router();
+
+router.post('/print-jobs', async (req: Request, res: Response) => {
+  const prisma = getPrismaClient();
+  if (!prisma) return res.status(503).json({ error: 'Database not available' });
+
+  try {
+    const body: PrintJobCreateRequest = req.body;
+    const projectName = (body.projectName ?? '').trim();
+    if (!projectName) {
+      return res.status(400).json({ error: 'projectName is required' });
+    }
+
+    const status = body.status ?? 'in_progress';
+    const job = await prisma.printJob.create({
+      data: {
+        projectName,
+        printerId: body.printerId ?? null,
+        spoolId: body.spoolId ?? null,
+        projectImage: body.projectImage ?? null,
+        filamentUsed: body.filamentUsed ?? null,
+        status,
+        notes: body.notes ?? null,
+        completedAt: status !== 'in_progress' ? new Date() : null,
+        progress: status === 'completed' ? 100 : status === 'failed' || status === 'cancelled' ? null : undefined,
+      },
+      include: { printer: true, spool: true },
+    });
+
+    if (status === 'completed' && job.spoolId && job.filamentUsed != null && job.filamentUsed > 0) {
+      const spool = await prisma.spool.findUnique({ where: { id: job.spoolId } });
+      if (spool) {
+        await prisma.spool.update({
+          where: { id: job.spoolId },
+          data: { remainingWeight: Math.max(0, spool.remainingWeight - job.filamentUsed) },
+        });
+      }
+    }
+
+    res.status(201).json(job);
+  } catch (error) {
+    logger.error('Failed to create print job:', error);
+    res.status(500).json({ error: 'Failed to create print job' });
+  }
+});
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
 
 router.get('/print-jobs', async (req: Request, res: Response) => {
   const prisma = getPrismaClient();
   if (!prisma) return res.status(503).json({ error: 'Database not available' });
 
   try {
-    const { printerId, spoolId, status, limit } = req.query;
+    const { printerId, spoolId, status, limit, offset } = req.query;
     const where: Record<string, unknown> = {};
 
     if (printerId) where.printerId = printerId as string;
     if (spoolId) where.spoolId = spoolId as string;
     if (status) where.status = status as string;
 
-    const take = limit ? parseInt(limit as string, 10) : 50;
+    const take = limit ? Math.min(parseInt(limit as string, 10), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+    const skip = offset ? Math.max(0, parseInt(offset as string, 10)) : 0;
 
     const printJobs = await prisma.printJob.findMany({
       where,
       include: { printer: true, spool: true },
       orderBy: { startedAt: 'desc' },
+      skip,
       take,
     });
     res.json(printJobs);

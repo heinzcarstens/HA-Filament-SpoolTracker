@@ -9,9 +9,10 @@ interface SpoolCardProps {
   onArchive: (spool: Spool) => void;
   onDelete: (spool: Spool) => void;
   onActivate: (spool: Spool) => void;
+  onNameClick?: (spool: Spool) => void;
 }
 
-export default function SpoolCard({ spool, onEdit, onDeduct, onArchive, onDelete, onActivate }: SpoolCardProps) {
+export default function SpoolCard({ spool, onEdit, onDeduct, onArchive, onDelete, onActivate, onNameClick }: SpoolCardProps) {
   const colorDisplay = spool.colorHex || spool.color;
   const isLow = spool.remainingWeight <= 100;
 
@@ -20,7 +21,13 @@ export default function SpoolCard({ spool, onEdit, onDeduct, onArchive, onDelete
       <div className="spool-card-header">
         <div className="spool-color" style={{ backgroundColor: colorDisplay }} />
         <div className="spool-info">
-          <h3 className="spool-name">{spool.name}</h3>
+          {onNameClick ? (
+            <button type="button" className="spool-name spool-name-btn" onClick={() => onNameClick(spool)} title="View prints">
+              {spool.name}
+            </button>
+          ) : (
+            <h3 className="spool-name">{spool.name}</h3>
+          )}
           <span className="spool-type-badge">{spool.filamentType}</span>
         </div>
         {spool.isActive && <span className="spool-active-badge">Active</span>}

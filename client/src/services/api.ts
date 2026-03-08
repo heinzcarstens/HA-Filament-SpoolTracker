@@ -2,7 +2,8 @@ import axios, { AxiosRequestConfig } from 'axios';
 import type {
   Spool, PrintJob, Printer, DashboardStats,
   SpoolCreateRequest, SpoolUpdateRequest, DeductionRequest,
-  PrinterCreateRequest, PrinterUpdateRequest, PrintJobUpdateRequest,
+  PrinterCreateRequest, PrinterUpdateRequest,
+  PrintJobCreateRequest, PrintJobUpdateRequest,
   HAConnectionStatus, HADiscoveredEntity, AppSettings,
 } from '@ha-addon/types';
 
@@ -73,9 +74,10 @@ export const spoolsApi = {
 };
 
 export const printJobsApi = {
-  getAll: (params?: { printerId?: string; spoolId?: string; status?: string; limit?: number }) =>
+  getAll: (params?: { printerId?: string; spoolId?: string; status?: string; limit?: number; offset?: number }) =>
     api.get<PrintJob[]>('/print-jobs', { params }),
   getById: (id: string) => api.get<PrintJob>(`/print-jobs/${id}`),
+  create: (data: PrintJobCreateRequest) => api.post<PrintJob>('/print-jobs', data),
   update: (id: string, data: PrintJobUpdateRequest) => api.put<PrintJob>(`/print-jobs/${id}`, data),
   delete: (id: string) => api.delete(`/print-jobs/${id}`),
 };
