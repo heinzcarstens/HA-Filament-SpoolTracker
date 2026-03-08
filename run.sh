@@ -24,14 +24,14 @@ cd "$APP_ROOT"
 # Database is optional — only configure if URL is provided
 if [ -n "$DATABASE_URL" ]; then
   export DATABASE_URL="$DATABASE_URL"
-  bashio::log.info "Database configured, running migrations..."
-  pnpm prisma:migrate || bashio::log.warning "Migration failed — continuing without database"
+  bashio::log.info "Database configured at ${DATABASE_URL}"
 else
-  # Default to SQLite in /data for persistence across restarts
   export DATABASE_URL="file:/data/app.db"
   bashio::log.info "No database URL configured — using local SQLite at /data/app.db"
-  pnpm prisma:migrate || bashio::log.warning "Migration failed — continuing without database"
 fi
+
+bashio::log.info "Syncing database schema..."
+pnpm prisma:migrate || bashio::log.warning "Schema sync failed — continuing without database"
 
 bashio::log.info "Starting application on port $PORT..."
 pnpm start
