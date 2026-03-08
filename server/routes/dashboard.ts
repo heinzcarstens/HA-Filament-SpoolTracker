@@ -12,7 +12,7 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
   try {
     const lowFilamentThreshold = 100; // grams, TODO: read from settings
 
-    const [totalSpools, activeSpools, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools] =
+    const [totalSpools, activeSpools, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools, activeSpoolsList] =
       await Promise.all([
         prisma.spool.count({ where: { isArchived: false } }),
         prisma.spool.count({ where: { isActive: true, isArchived: false } }),
@@ -33,6 +33,10 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
           where: { isArchived: false },
           select: { remainingWeight: true },
         }),
+        prisma.spool.findMany({
+          where: { isActive: true, isArchived: false },
+          orderBy: { name: 'asc' },
+        }),
       ]);
 
     const totalFilamentStock = allSpools.reduce((sum, s) => sum + s.remainingWeight, 0);
@@ -45,6 +49,7 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
       lowFilamentAlerts: lowFilamentSpools.length,
       recentPrintJobs,
       lowFilamentSpools,
+      activeSpoolsList,
     });
   } catch (error) {
     logger.error('Failed to fetch dashboard stats:', error);

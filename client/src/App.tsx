@@ -3,12 +3,14 @@ import TabNav from '@components/TabNav';
 import DashboardPage from '@pages/Dashboard';
 import SpoolsPage from '@pages/Spools';
 import PrintHistoryPage from '@pages/PrintHistory';
+import PrintersPage from '@pages/Printers';
 import SettingsPage from '@pages/Settings';
 import './App.css';
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'spools', label: 'Spools' },
+  { id: 'printers', label: 'Printers' },
   { id: 'history', label: 'Print History' },
   { id: 'settings', label: 'Settings' },
 ];
@@ -20,6 +22,7 @@ function App() {
   const renderPage = () => {
     switch (activeTab) {
       case 'spools': return <SpoolsPage />;
+      case 'printers': return <PrintersPage />;
       case 'history': return <PrintHistoryPage />;
       case 'settings': return <SettingsPage />;
       default: return <DashboardPage />;

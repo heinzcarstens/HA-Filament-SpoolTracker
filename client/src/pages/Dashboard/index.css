@@ -69,6 +69,72 @@
   margin: 0;
 }
 
+.active-spools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.active-spool-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.active-spool-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.active-spool-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.active-spool-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.active-spool-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.active-spool-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.active-spool-weight {
+  font-size: 14px;
+}
+
+.active-spool-remaining {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.active-spool-total {
+  color: var(--text-muted);
+}
+
 .low-filament-list {
   display: flex;
   flex-direction: column;

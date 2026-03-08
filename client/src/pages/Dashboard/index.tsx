@@ -68,6 +68,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {stats.activeSpoolsList.length > 0 && (
+        <div className="dashboard-section">
+          <h3 className="section-title">Active Spools</h3>
+          <div className="active-spools-grid">
+            {stats.activeSpoolsList.map((spool) => (
+              <div key={spool.id} className="active-spool-card">
+                <div className="active-spool-header">
+                  <span className="active-spool-dot" style={{ backgroundColor: spool.colorHex || spool.color }} />
+                  <div className="active-spool-info">
+                    <span className="active-spool-name">{spool.name}</span>
+                    <span className="active-spool-type">{spool.filamentType}</span>
+                  </div>
+                </div>
+                <div className="active-spool-weight">
+                  <span className="active-spool-remaining">{Math.round(spool.remainingWeight)}g</span>
+                  <span className="active-spool-total"> / {Math.round(spool.initialWeight)}g</span>
+                </div>
+                <ProgressBar value={spool.remainingWeight} max={spool.initialWeight} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {stats.lowFilamentSpools.length > 0 && (
         <div className="dashboard-section">
           <h3 className="section-title">Low Filament Warnings</h3>

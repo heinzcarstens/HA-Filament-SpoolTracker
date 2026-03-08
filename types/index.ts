@@ -111,6 +111,7 @@ export interface DashboardStats {
   lowFilamentAlerts: number;
   recentPrintJobs: PrintJob[];
   lowFilamentSpools: Spool[];
+  activeSpoolsList: Spool[];
 }
 
 export interface HAConnectionStatus {
