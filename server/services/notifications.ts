@@ -88,12 +88,35 @@ export async function checkUnassignedJobs(): Promise<void> {
   }
 }
 
+export async function checkStuckInProgressJobs(): Promise<void> {
+  const prisma = getPrismaClient();
+  if (!prisma) return;
+
+  try {
+    const [inProgress, activePrinters] = await Promise.all([
+      prisma.printJob.count({ where: { status: 'in_progress' } }),
+      prisma.printer.count({ where: { isActive: true } }),
+    ]);
+
+    if (inProgress > 0 && activePrinters === 0) {
+      await sendNotification(
+        'Stuck print jobs',
+        `You have ${inProgress} print job${inProgress > 1 ? 's' : ''} marked as in progress while all printers are inactive. ` +
+          'Please review them in SpoolTracker and update their status manually if needed.'
+      );
+    }
+  } catch (error) {
+    logger.error('Failed to check stuck in-progress jobs:', error);
+  }
+}
+
 let checkInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startPeriodicChecks(): void {
   checkInterval = setInterval(async () => {
     await checkExpiringSpools();
     await checkUnassignedJobs();
+    await checkStuckInProgressJobs();
     await publishActiveSpoolSensor();
   }, 6 * 60 * 60 * 1000); // every 6 hours
 

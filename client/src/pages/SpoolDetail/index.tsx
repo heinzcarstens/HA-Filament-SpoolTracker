@@ -23,24 +23,26 @@ export default function SpoolDetailPage() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      spoolsApi.getById(id),
-      printJobsApi.getAll({ spoolId: id, limit: 100 }),
-    ])
-      .then(([spoolRes, jobsRes]) => {
-        if (!cancelled) {
-          setSpool(spoolRes.data);
-          setJobs(jobsRes.data);
-        }
-      })
-      .catch(() => {
+
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [spoolRes, jobsRes] = await Promise.all([
+          spoolsApi.getById(id),
+          printJobsApi.getAll({ spoolId: id, limit: 100 }),
+        ]);
+        if (cancelled) return;
+        setSpool(spoolRes.data);
+        setJobs(jobsRes.data);
+      } catch {
         if (!cancelled) setError('Failed to load spool');
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    void run();
     return () => { cancelled = true; };
   }, [id]);
 
