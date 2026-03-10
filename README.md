@@ -11,6 +11,28 @@ A Home Assistant add-on for tracking 3D printer filament spool usage with automa
 - **Dashboard** -- Overview of filament stock, active prints, low filament warnings, and recent print history
 - **Notifications** -- HA persistent notifications for low filament levels, unassigned print jobs, and expiring spools
 
+### UI Preview
+
+Dashboard:
+
+![Dashboard](docs/Dashboard.png)
+
+Spools:
+
+![Spools](docs/Spools.png)
+
+Printers:
+
+![Printers](docs/Printers.png)
+
+Print History:
+
+![Print History](docs/Jobs.png)
+
+Settings:
+
+![Settings](docs/Settings.png)
+
 ## Prerequisites
 
 - Home Assistant with the [Bambu Lab integration](https://github.com/greghesp/ha-bambulab) installed and configured
