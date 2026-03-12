@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.1.23
+
+- Add global notification toggle and per-feature toggle for filament-change reminders in Settings.
+- Detect likely filament changes from Bambu entities and, when enabled, send a reminder to update the loaded spool.
+- Add dedicated “Low” filter on the Spools page and wire dashboard tiles to deep-link with filters (spools and history).
+- Enhance Spool detail view with inline Deduct and Archive actions.
+- Refine mobile navigation and header (integrated tab bar, hamburger drawer, updated favicon/logo).
+- Add README screenshots from `docs/` and link to the Home Assistant community thread and changelog URL in `config.yaml`.
+
 ## 0.1.19
 
 - Add cached cover image support: store print job thumbnails locally and serve via the add-on.

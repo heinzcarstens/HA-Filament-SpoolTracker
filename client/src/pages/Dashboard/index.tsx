@@ -51,7 +51,6 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="dashboard">
-        <h2 className="page-title">Dashboard</h2>
         <div className="error-card">
           <p>{error}</p>
         </div>
@@ -62,7 +61,6 @@ export default function DashboardPage() {
   if (!stats) {
     return (
       <div className="dashboard">
-        <h2 className="page-title">Dashboard</h2>
         <div className="loading-container"><div className="spinner" /><p>Loading dashboard...</p></div>
       </div>
     );
@@ -70,9 +68,6 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
-      <h2 className="page-title">Dashboard</h2>
-      <p className="page-subtitle">Overview of your filament inventory and print activity</p>
-
       <div className="stats-grid">
         <button
           type="button"

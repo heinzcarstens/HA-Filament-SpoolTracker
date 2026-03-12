@@ -11,6 +11,23 @@ export async function sendNotification(title: string, message: string): Promise<
     return;
   }
 
+  const prisma = getPrismaClient();
+  if (!prisma) {
+    logger.debug(`Notification skipped (no database): ${title} — ${message}`);
+    return;
+  }
+
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: 'notifications_enabled' } });
+    const enabled = setting ? setting.value !== 'false' && setting.value !== '0' : true;
+    if (!enabled) {
+      logger.debug(`Notification suppressed by settings: ${title}`);
+      return;
+    }
+  } catch (err) {
+    logger.warn('Failed to read notifications_enabled setting, sending anyway:', err);
+  }
+
   try {
     const response = await fetch('http://supervisor/core/api/services/persistent_notification/create', {
       method: 'POST',

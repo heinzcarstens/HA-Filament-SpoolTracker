@@ -7,6 +7,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [haStatus, setHaStatus] = useState<HAConnectionStatus | null>(null);
   const [lowThreshold, setLowThreshold] = useState('100');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [filamentChangeNotificationsEnabled, setFilamentChangeNotificationsEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -19,6 +21,15 @@ export default function SettingsPage() {
         setSettings(settingsRes.data);
         setHaStatus(haStatusRes.data);
         setLowThreshold(settingsRes.data['low_filament_threshold'] || '100');
+        if (settingsRes.data['notifications_enabled'] != null) {
+          setNotificationsEnabled(settingsRes.data['notifications_enabled'] !== 'false' && settingsRes.data['notifications_enabled'] !== '0');
+        }
+        if (settingsRes.data['filament_change_notifications_enabled'] != null) {
+          setFilamentChangeNotificationsEnabled(
+            settingsRes.data['filament_change_notifications_enabled'] !== 'false' &&
+            settingsRes.data['filament_change_notifications_enabled'] !== '0',
+          );
+        }
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
@@ -31,6 +42,8 @@ export default function SettingsPage() {
     try {
       const res = await settingsApi.update({
         low_filament_threshold: lowThreshold,
+        notifications_enabled: notificationsEnabled ? 'true' : 'false',
+        filament_change_notifications_enabled: filamentChangeNotificationsEnabled ? 'true' : 'false',
       });
       setSettings(res.data);
     } catch (err) {
@@ -59,8 +72,40 @@ export default function SettingsPage() {
       </div>
 
       <div className="settings-section">
+        <h3 className="section-title">Printers &amp; Filament</h3>
+        <div className="settings-card">
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={filamentChangeNotificationsEnabled}
+                onChange={(e) => setFilamentChangeNotificationsEnabled(e.target.checked)}
+              />
+              Enable filament-change reminder
+            </label>
+            <p className="form-hint">
+              When enabled, a notification is sent when the Bambu integration suggests filament was changed on a printer.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section">
         <h3 className="section-title">Notifications</h3>
         <div className="settings-card">
+          <div className="form-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={notificationsEnabled}
+                onChange={(e) => setNotificationsEnabled(e.target.checked)}
+              />
+              Enable Home Assistant notifications
+            </label>
+            <p className="form-hint">
+              When disabled, low filament, unassigned jobs, expiring spools, and stuck in-progress job alerts will not be sent.
+            </p>
+          </div>
           <div className="form-group">
             <label>Low Filament Threshold (grams)</label>
             <input
@@ -75,10 +120,13 @@ export default function SettingsPage() {
               Get notified when a spool drops below this weight. Currently: {settings['low_filament_threshold'] || '100'}g
             </span>
           </div>
-          <button className="btn btn-primary" onClick={handleSaveSettings} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
         </div>
+      </div>
+
+      <div className="settings-actions">
+        <button className="btn btn-primary" onClick={handleSaveSettings} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Settings'}
+        </button>
       </div>
     </div>
   );

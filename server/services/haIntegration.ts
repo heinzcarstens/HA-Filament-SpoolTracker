@@ -150,8 +150,6 @@ async function handleStateChange(data: {
   const { entity_id, new_state, old_state } = data;
   if (!entity_id || !new_state) return;
 
-  if (!entity_id.endsWith('_print_status')) return;
-
   const state = (new_state.state as string)?.toLowerCase();
   const manufacturer = ((new_state.attributes as Record<string, unknown>)?.manufacturer as string)?.toLowerCase() ?? '';
 
@@ -161,11 +159,52 @@ async function handleStateChange(data: {
     manufacturer.includes('bambu') ||
     (PRINT_STATUS_STATES.has(state ?? '') && /^(p1|p2|p2s|x1|x1c|a1|a1m|h2|p1s)(_|$)/i.test(prefix));
 
-  logger.debug(`Print status event: entity_id=${entity_id} state=${state} isBambu=${isBambu} prefix=${prefix}`);
-
   if (!isBambu) return;
 
-  await handlePrintStatusChange(entity_id, new_state, old_state);
+  if (entity_id.endsWith('_print_status')) {
+    logger.debug(`Print status event: entity_id=${entity_id} state=${state} isBambu=${isBambu} prefix=${prefix}`);
+    await handlePrintStatusChange(entity_id, new_state, old_state);
+    return;
+  }
+
+  // Heuristic: Bambu filament/material entities changing likely indicate a manual filament change.
+  const oldState = (old_state?.state as string | undefined)?.toLowerCase();
+  if (oldState === state) return;
+
+  if (/_filament_|_material_|_color_|ams_/i.test(entity_id)) {
+    await maybeNotifyFilamentChange(prefix);
+  }
+}
+
+async function maybeNotifyFilamentChange(printerPrefix: string): Promise<void> {
+  const prisma = getPrismaClient();
+  if (!prisma) return;
+
+  try {
+    const filamentSetting = await prisma.setting.findUnique({ where: { key: 'filament_change_notifications_enabled' } });
+    const filamentEnabled = filamentSetting ? filamentSetting.value !== 'false' && filamentSetting.value !== '0' : true;
+    if (!filamentEnabled) {
+      logger.debug('Filament-change notification suppressed by settings');
+      return;
+    }
+
+    const printer = await prisma.printer.findFirst({
+      where: {
+        OR: [
+          { entityPrefix: { contains: printerPrefix } },
+          { haDeviceId: { contains: printerPrefix } },
+        ],
+      },
+    });
+    const name = printer?.name ?? printerPrefix;
+    await sendNotification(
+      'Filament may have changed',
+      `It looks like filament may have changed on printer "${name}". ` +
+        'If you switched spools, don’t forget to update the loaded spool in SpoolTracker.'
+    );
+  } catch (err) {
+    logger.error('Failed to send filament-change notification:', err);
+  }
 }
 
 async function handlePrintStatusChange(
