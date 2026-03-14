@@ -92,6 +92,46 @@ Notification thresholds can be adjusted in the **Settings** tab.
 
 You can manually archive, reactivate, or deduct filament from any spool via the spool card menu.
 
+## Running outside Hass.io (standalone Docker)
+
+You can run the add-on in Docker on another machine and still connect it to your Home Assistant instance.
+
+### 1. Create a Long-Lived Access Token in Home Assistant
+
+In HA: **Profile → Security → Long-Lived Access Tokens** → Create token. Copy the token.
+
+### 2. Build the image
+
+```bash
+pnpm addon:build
+```
+
+### 3. Run the container
+
+Copy `.env.example` to `.env`, set `HOME_ASSISTANT_URL` and `SUPERVISOR_TOKEN`, then run:
+
+```bash
+pnpm addon:standalone
+```
+
+To stop: `pnpm addon:standalone:down`
+
+
+Then open **http://localhost:3000** for the SpoolTracker UI. The add-on will use your token to talk to the WebSocket and REST APIs on the given HA URL.
+
+Optional env vars:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HOME_ASSISTANT_URL` | (none) | HA base URL, e.g. `http://192.168.1.100:8123`. Required for HA integration. |
+| `SUPERVISOR_TOKEN` | (none) | Long-Lived Access Token from HA. Required for HA integration. |
+| `PORT` | `3000` | Port the app listens on. |
+| `DATABASE_URL` | `file:/data/app.db` | SQLite path or PostgreSQL URL. |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warning`, or `error`. |
+| `SUPERVISOR_TOKEN_FILE` | (none) | Path to a file containing the token (e.g. mounted secret). Used when `SUPERVISOR_TOKEN` is not set. |
+
+If the add-on and HA use different networks (e.g. Docker bridge vs host), ensure the host/port in `HOME_ASSISTANT_URL` is reachable from the container (e.g. use the host’s LAN IP, not `localhost`).
+
 ## Development
 
 <details>

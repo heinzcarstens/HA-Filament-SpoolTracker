@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.27
+
+- **Standalone Docker run:** Run the add-on in Docker outside Hass.io while still connected to Home Assistant. Refer to the README for instructions.
+
 ## 0.1.26
 
 - Reduce duplicate print jobs: use printer “print start” entity (e.g. `sensor.*_print_start`) to detect same print; add optional `entityPrintStart` to printer config and Edit Printer modal.

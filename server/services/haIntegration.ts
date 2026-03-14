@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { getPrismaClient } from '../database';
 import { LOG } from '../utils/logger';
+import { getHABaseUrl, getHAWebSocketUrl } from '../utils/haUrl';
 import { fetchAndCacheCoverImage } from './coverImageCache';
 import { sendNotification } from './notifications';
 import { publishActiveSpoolSensor } from './haSensors';
@@ -49,7 +50,7 @@ function connect(token: string): void {
   }
 
   logger.info('Connecting to Home Assistant WebSocket API...');
-  haSocket = new WebSocket('ws://supervisor/core/websocket');
+  haSocket = new WebSocket(getHAWebSocketUrl());
 
   haSocket.on('open', () => {
     logger.info('WebSocket connection opened to HA');
@@ -478,7 +479,7 @@ async function fetchEntityState(entityId: string): Promise<string | null> {
   if (!token) return null;
 
   try {
-    const response = await fetch(`http://supervisor/core/api/states/${entityId}`, {
+    const response = await fetch(`${getHABaseUrl()}/api/states/${entityId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return null;
@@ -496,7 +497,7 @@ async function fetchEntityValue(entityId: string, attribute?: string): Promise<s
   const attr = attribute ?? 'state';
   try {
     const normalized = entityId.toLowerCase();
-    const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(normalized)}`, {
+    const response = await fetch(`${getHABaseUrl()}/api/states/${encodeURIComponent(normalized)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) return null;

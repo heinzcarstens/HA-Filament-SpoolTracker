@@ -1,4 +1,5 @@
 import { LOG } from '../utils/logger';
+import { getHABaseUrl } from '../utils/haUrl';
 import { getPrismaClient } from '../database';
 
 const logger = LOG('HA_SENSORS');
@@ -15,7 +16,7 @@ async function setHASensorState(
   }
 
   try {
-    const res = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(entityId)}`, {
+    const res = await fetch(`${getHABaseUrl()}/api/states/${encodeURIComponent(entityId)}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { LOG } from '../utils/logger';
+import { getHABaseUrl } from '../utils/haUrl';
 
 const logger = LOG('HA');
 const router: Router = Router();
@@ -11,7 +12,7 @@ router.get('/ha/status', async (_req: Request, res: Response) => {
       return res.json({ connected: false, printerCount: 0 });
     }
 
-    const response = await fetch('http://supervisor/core/api/states', {
+    const response = await fetch(`${getHABaseUrl()}/api/states`, {
       headers: { Authorization: `Bearer ${supervisorToken}` },
     });
 
@@ -41,7 +42,7 @@ router.get('/ha/entities', async (_req: Request, res: Response) => {
       return res.json([]);
     }
 
-    const response = await fetch('http://supervisor/core/api/states', {
+    const response = await fetch(`${getHABaseUrl()}/api/states`, {
       headers: { Authorization: `Bearer ${supervisorToken}` },
     });
 
@@ -122,7 +123,7 @@ router.get('/ha/entities/states', async (req: Request, res: Response) => {
         try {
           const { entityId, attribute: attr } = parseIdAndAttribute(requestKey);
           const fetchId = entityId.toLowerCase();
-          const response = await fetch(`http://supervisor/core/api/states/${encodeURIComponent(fetchId)}`, {
+          const response = await fetch(`${getHABaseUrl()}/api/states/${encodeURIComponent(fetchId)}`, {
             headers: { Authorization: `Bearer ${supervisorToken}` },
           });
           if (!response.ok) {

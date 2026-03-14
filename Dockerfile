@@ -55,9 +55,10 @@ COPY --from=builder /app/server ./server
 COPY --from=builder /app/client/dist ./client/dist
 COPY --from=builder /app/types ./types
 
-# Copy and setup startup script
+# Copy and setup startup scripts
 COPY run.sh /run.sh
-RUN chmod +x /run.sh
+COPY run-standalone.sh /run-standalone.sh
+RUN chmod +x /run.sh /run-standalone.sh
 
 # Create data directory for persistence
 RUN mkdir -p /data

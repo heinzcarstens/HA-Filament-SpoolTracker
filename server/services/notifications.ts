@@ -1,4 +1,5 @@
 import { LOG } from '../utils/logger';
+import { getHABaseUrl } from '../utils/haUrl';
 import { getPrismaClient } from '../database';
 import { publishActiveSpoolSensor } from './haSensors';
 
@@ -29,7 +30,7 @@ export async function sendNotification(title: string, message: string): Promise<
   }
 
   try {
-    const response = await fetch('http://supervisor/core/api/services/persistent_notification/create', {
+    const response = await fetch(`${getHABaseUrl()}/api/services/persistent_notification/create`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

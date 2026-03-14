@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { LOG } from '../utils/logger';
+import { getHABaseUrl } from '../utils/haUrl';
 
 const logger = LOG('COVER_CACHE');
 
@@ -38,7 +39,7 @@ export async function fetchAndCacheCoverImage(haImagePath: string, jobId: string
     return null;
   }
 
-  const url = `http://supervisor/core${haImagePath}`;
+  const url = `${getHABaseUrl()}${haImagePath}`;
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
