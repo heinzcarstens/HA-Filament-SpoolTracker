@@ -1,6 +1,9 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## 0.1.24
+
+- Footer: add link to Home Assistant community discussion.
+- Active spool sensor: prefer spool loaded on the most recently updated printer so the sensor updates correctly when changing the loaded spool from the dashboard.
 
 ## 0.1.23
 

@@ -142,6 +142,16 @@
   margin: 0;
 }
 
+.app-footer a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .header-content {
     gap: var(--spacing-sm);

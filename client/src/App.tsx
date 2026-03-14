@@ -91,7 +91,15 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>HA Filament SpoolTracker</p>
+        <p>
+          <a
+            href="https://community.home-assistant.io/t/add-on-ha-filament-spooltracker-filament-print-job-tracker-for-bambu-lab-octoprint-planned/994230"
+            target="_blank"
+            rel="noreferrer"
+          >
+            HA Filament SpoolTracker – Home Assistant community discussion
+          </a>
+        </p>
       </footer>
     </div>
   );

@@ -46,40 +46,58 @@ export async function publishActiveSpoolSensor(): Promise<void> {
   if (!prisma) return;
 
   try {
-    // Prefer spools that are currently loaded on a printer, fall back to legacy isActive flag.
-    const activeSpools = await prisma.spool.findMany({
-      where: {
-        isArchived: false,
-        OR: [
-          { loadedOnPrinter: { isNot: null } },
-          { isActive: true },
-        ],
-      },
-      include: {
-        loadedOnPrinter: true,
-      },
-      orderBy: {
-        updatedAt: 'desc',
-      },
-      take: 1,
+    // Prefer spool loaded on the most recently updated printer (so dropdown changes are reflected).
+    const printerWithSpool = await prisma.printer.findFirst({
+      where: { activeSpoolId: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+      include: { activeSpool: true },
     });
 
     const entityId = 'sensor.spooltracker_active_spool_remaining_g';
 
-    if (activeSpools.length === 0) {
-      await setHASensorState(entityId, '0', {
+    if (!printerWithSpool?.activeSpool) {
+      // Fallback: any spool with loadedOnPrinter or legacy isActive.
+      const activeSpools = await prisma.spool.findMany({
+        where: {
+          isArchived: false,
+          OR: [
+            { loadedOnPrinter: { isNot: null } },
+            { isActive: true },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 1,
+      });
+      const spool = activeSpools[0];
+      if (!spool) {
+        await setHASensorState(entityId, '0', {
+          unit_of_measurement: 'g',
+          friendly_name: 'SpoolTracker Active Spool Remaining',
+          spool_id: null,
+          initial_grams: null,
+          percent_remaining: 0,
+          filament_type: null,
+          color: null,
+        });
+        return;
+      }
+      const remaining = spool.remainingWeight ?? 0;
+      const initial = spool.initialWeight || 0;
+      const percent = initial > 0 ? Math.max(0, Math.min(100, Math.round((remaining / initial) * 100))) : 0;
+      await setHASensorState(entityId, String(Math.round(remaining)), {
         unit_of_measurement: 'g',
         friendly_name: 'SpoolTracker Active Spool Remaining',
-        spool_id: null,
-        initial_grams: null,
-        percent_remaining: 0,
-        filament_type: null,
-        color: null,
+        spool_id: spool.id,
+        spool_name: spool.name,
+        initial_grams: initial,
+        percent_remaining: percent,
+        filament_type: spool.filamentType,
+        color: spool.colorHex || spool.color,
       });
       return;
     }
 
-    const spool = activeSpools[0];
+    const spool = printerWithSpool.activeSpool;
     const remaining = spool.remainingWeight ?? 0;
     const initial = spool.initialWeight || 0;
     const percent = initial > 0 ? Math.max(0, Math.min(100, Math.round((remaining / initial) * 100))) : 0;
