@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.25
+
+- Reduce duplicate print jobs: use printer “print start” entity (e.g. `sensor.*_print_start`) to detect same print; add optional `entityPrintStart` to printer config and Edit Printer modal.
+- Printer cards: full-width spool section, icon+label Edit/Remove buttons, and full-width progress/selector; add “Loaded spool” label and improve layout.
+- SpoolSelect component: color dots in dropdown options; optional custom trigger (`renderTrigger`) for card-style content; used on Dashboard and Printers page.
+- Dashboard Active Spools: integrate selector into the card (one block per printer: card content is the dropdown trigger; “View” link to spool detail; no duplicate spool text).
+- Dashboard API: include `color` and `colorHex` in `spoolsList` so selector options show correct spool colors.
+- SpoolCard: replace action text with icon + short label (Edit, Deduct, Activate/Archive, Delete) for a single-row layout.
+
 ## 0.1.24
 
 - Footer: add link to Home Assistant community discussion.

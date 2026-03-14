@@ -4,6 +4,7 @@ import { dashboardApi, printersApi } from '@services/api';
 import type { DashboardStats, Printer } from '@ha-addon/types';
 import PrintJobCard from '@components/PrintJobCard';
 import ProgressBar from '@components/ProgressBar';
+import SpoolSelect from '@components/SpoolSelect';
 import './index.css';
 
 export default function DashboardPage() {
@@ -118,57 +119,44 @@ export default function DashboardPage() {
             {stats.printersList.map((printer) => (
               <div key={printer.id} className="printer-with-spool-card">
                 <span className="printer-with-spool-name">{printer.name}</span>
-                {printer.activeSpool ? (
-                  <>
-                    <button
-                      type="button"
-                      className="active-spool-card active-spool-card-clickable active-spool-card-inside"
-                      onClick={() => navigate(`/spools/${printer.activeSpool!.id}`)}
-                    >
+                <SpoolSelect
+                  value={printer.activeSpoolId ?? null}
+                  onChange={(id) => handlePrinterLoadedSpoolChange(printer, id)}
+                  spools={stats.spoolsList ?? []}
+                  placeholder="Select spool…"
+                  size="sm"
+                  className={printer.activeSpool ? '' : 'spool-select-empty'}
+                  aria-label={printer.activeSpool ? 'Change loaded spool' : 'Select loaded spool'}
+                  renderTrigger={() => (printer.activeSpool ? (
+                    <div className="active-spool-trigger-content">
                       <div className="active-spool-header">
                         <span className="active-spool-dot" style={{ backgroundColor: printer.activeSpool.colorHex || printer.activeSpool.color }} />
                         <div className="active-spool-info">
                           <span className="active-spool-name">{printer.activeSpool.name}</span>
                           <span className="active-spool-type">{printer.activeSpool.filamentType}</span>
                         </div>
+                        <a
+                          href={`/spools/${printer.activeSpool.id}`}
+                          className="active-spool-view-link"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/spools/${printer.activeSpool!.id}`);
+                          }}
+                        >
+                          View
+                        </a>
                       </div>
                       <div className="active-spool-weight">
                         <span className="active-spool-remaining">{Math.round(printer.activeSpool.remainingWeight)}g</span>
                         <span className="active-spool-total"> / {Math.round(printer.activeSpool.initialWeight)}g</span>
                       </div>
                       <ProgressBar value={printer.activeSpool.remainingWeight} max={printer.activeSpool.initialWeight} size="sm" />
-                    </button>
-                    <select
-                      className="printer-loaded-select printer-loaded-select-sm"
-                      value={printer.activeSpoolId ?? ''}
-                      onChange={(e) => handlePrinterLoadedSpoolChange(printer, e.target.value || null)}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <option value="">None</option>
-                      {(stats.spoolsList ?? []).map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.filamentType})
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                ) : (
-                  <div className="printer-no-spool">
-                    <span className="printer-no-spool-label">No spool loaded</span>
-                    <select
-                      className="printer-loaded-select"
-                      value=""
-                      onChange={(e) => handlePrinterLoadedSpoolChange(printer, e.target.value || null)}
-                    >
-                      <option value="">Select spool…</option>
-                      {(stats.spoolsList ?? []).map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.filamentType})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <span className="spool-select-placeholder">No spool loaded — click to select</span>
+                  ))}
+                />
               </div>
             ))}
           </div>

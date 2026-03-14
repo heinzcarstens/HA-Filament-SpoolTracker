@@ -12,6 +12,7 @@ export interface Printer {
   entityTaskName: string | null;
   entityPrintWeight: string | null;
   entityCoverImage: string | null;
+  entityPrintStart: string | null;
   createdAt: string;
   updatedAt: string;
   activeSpool?: Spool | null;
@@ -98,6 +99,7 @@ export interface PrinterCreateRequest {
   entityTaskName?: string | null;
   entityPrintWeight?: string | null;
   entityCoverImage?: string | null;
+  entityPrintStart?: string | null;
 }
 
 export interface PrinterUpdateRequest extends Partial<PrinterCreateRequest> {

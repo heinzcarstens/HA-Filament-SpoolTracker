@@ -7,6 +7,7 @@ const ENTITY_SUFFIXES = {
   entityTaskName: '_task_name',
   entityPrintWeight: '_print_weight',
   entityCoverImage: '_cover_image',
+  entityPrintStart: '_print_start',
 } as const;
 
 /** Default domain and attribute per monitored entity (Bambu: cover_image is image entity, attribute entity_picture). */
@@ -15,12 +16,14 @@ const ENTITY_DEFAULT_DOMAIN: Record<string, string> = {
   [ENTITY_SUFFIXES.entityTaskName]: 'sensor',
   [ENTITY_SUFFIXES.entityPrintWeight]: 'sensor',
   [ENTITY_SUFFIXES.entityCoverImage]: 'image',
+  [ENTITY_SUFFIXES.entityPrintStart]: 'sensor',
 };
 const ENTITY_ATTRIBUTE: Record<string, string> = {
   [ENTITY_SUFFIXES.entityPrintStatus]: 'state',
   [ENTITY_SUFFIXES.entityTaskName]: 'state',
   [ENTITY_SUFFIXES.entityPrintWeight]: 'state',
   [ENTITY_SUFFIXES.entityCoverImage]: 'entity_picture',
+  [ENTITY_SUFFIXES.entityPrintStart]: 'state',
 };
 
 export type EditPrinterSaveData = {
@@ -33,6 +36,7 @@ export type EditPrinterSaveData = {
   entityTaskName?: string | null;
   entityPrintWeight?: string | null;
   entityCoverImage?: string | null;
+  entityPrintStart?: string | null;
 };
 
 interface EditPrinterModalProps {
@@ -60,6 +64,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
   const [entityTaskName, setEntityTaskName] = useState(printer.entityTaskName ?? '');
   const [entityPrintWeight, setEntityPrintWeight] = useState(printer.entityPrintWeight ?? '');
   const [entityCoverImage, setEntityCoverImage] = useState(printer.entityCoverImage ?? '');
+  const [entityPrintStart, setEntityPrintStart] = useState(printer.entityPrintStart ?? '');
   const [discovering, setDiscovering] = useState(false);
   const [entityStates, setEntityStates] = useState<Record<string, string | null>>({});
   const [entityStatesLoading, setEntityStatesLoading] = useState(false);
@@ -74,6 +79,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
     setEntityTaskName(printer.entityTaskName ?? '');
     setEntityPrintWeight(printer.entityPrintWeight ?? '');
     setEntityCoverImage(printer.entityCoverImage ?? '');
+    setEntityPrintStart(printer.entityPrintStart ?? '');
   }, [printer]);
 
   const prefix = entityPrefix.trim();
@@ -104,8 +110,9 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName),
       getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight),
       getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage),
+      getRequestKey(entityPrintStart, ENTITY_SUFFIXES.entityPrintStart),
     ].filter(Boolean) as string[];
-  }, [entityPrefix, entityPrintStatus, entityTaskName, entityPrintWeight, entityCoverImage]);
+  }, [entityPrefix, entityPrintStatus, entityTaskName, entityPrintWeight, entityCoverImage, entityPrintStart]);
 
   const fetchEntityStates = useCallback(() => {
     const ids = getRequestIds();
@@ -135,6 +142,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       entityTaskName: entityTaskName.trim() || null,
       entityPrintWeight: entityPrintWeight.trim() || null,
       entityCoverImage: entityCoverImage.trim() || null,
+      entityPrintStart: entityPrintStart.trim() || null,
     });
   };
 
@@ -165,20 +173,23 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityTaskName), ENTITY_SUFFIXES.entityTaskName, setEntityTaskName);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintWeight), ENTITY_SUFFIXES.entityPrintWeight, setEntityPrintWeight);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityCoverImage), ENTITY_SUFFIXES.entityCoverImage, setEntityCoverImage);
+      setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStart), ENTITY_SUFFIXES.entityPrintStart, setEntityPrintStart);
       if (onFetchEntityStates) {
         const ids = [
           defaultId(ENTITY_SUFFIXES.entityPrintStatus),
           defaultId(ENTITY_SUFFIXES.entityTaskName),
           defaultId(ENTITY_SUFFIXES.entityPrintWeight),
           defaultId(ENTITY_SUFFIXES.entityCoverImage),
+          defaultId(ENTITY_SUFFIXES.entityPrintStart),
         ].filter(Boolean);
         const overrides = [
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStatus),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityTaskName),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintWeight),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityCoverImage),
+          pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStart),
         ];
-        const suffixes = [ENTITY_SUFFIXES.entityPrintStatus, ENTITY_SUFFIXES.entityTaskName, ENTITY_SUFFIXES.entityPrintWeight, ENTITY_SUFFIXES.entityCoverImage];
+        const suffixes = [ENTITY_SUFFIXES.entityPrintStatus, ENTITY_SUFFIXES.entityTaskName, ENTITY_SUFFIXES.entityPrintWeight, ENTITY_SUFFIXES.entityCoverImage, ENTITY_SUFFIXES.entityPrintStart];
         const requestIds = suffixes
           .map((s, i) => {
             const effectiveId = overrides[i] || ids[i];
@@ -295,7 +306,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
               </div>
             </div>
             <p className="form-hint">
-              Entity IDs used for print status, task name, print weight, and cover image. Leave override empty to use the default <code>sensor.{prefix || '…'}_*</code>.
+              Entity IDs used for print status, task name, print weight, cover image, and print start time. Leave override empty to use the default <code>sensor.{prefix || '…'}_*</code>.
             </p>
             <div className="monitored-entity-rows">
               <div className="monitored-entity-row">
@@ -375,6 +386,26 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
                   value={entityCoverImage}
                   onChange={(e) => setEntityCoverImage(e.target.value)}
                   placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityCoverImage)}
+                  className="monitored-entity-override"
+                />
+              </div>
+              <div className="monitored-entity-row">
+                <span className="monitored-entity-label">Print start time</span>
+                <div className="monitored-entity-effective-line">
+                  <code className="monitored-entity-effective">
+                    {getRequestKey(entityPrintStart, ENTITY_SUFFIXES.entityPrintStart) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintStart)}
+                  </code>
+                  {(getRequestKey(entityPrintStart, ENTITY_SUFFIXES.entityPrintStart) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintStart) !== '—') && (
+                    <span className="monitored-entity-current">
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityPrintStart, ENTITY_SUFFIXES.entityPrintStart)] ?? '—')}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={entityPrintStart}
+                  onChange={(e) => setEntityPrintStart(e.target.value)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityPrintStart)}
                   className="monitored-entity-override"
                 />
               </div>

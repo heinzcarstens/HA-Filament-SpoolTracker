@@ -50,7 +50,7 @@
 
 .printer-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: var(--spacing-md);
 }
 
@@ -58,9 +58,9 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--spacing-md);
 }
 
@@ -68,12 +68,19 @@
   border-style: dashed;
 }
 
+.printer-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
 .printer-card-icon {
   font-size: 28px;
   flex-shrink: 0;
 }
 
-.printer-card-info {
+.printer-card-heading {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -88,6 +95,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.printer-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.printer-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .printer-card-model {
@@ -101,10 +123,110 @@
   font-family: monospace;
 }
 
+.printer-card-spool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.printer-card-spool-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.printer-card-spool-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+}
+
+.printer-card-spool-preview:hover {
+  color: var(--accent-primary);
+}
+
+.printer-card-spool-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.printer-card-spool-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.printer-card-spool-weight {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.printer-card-spool .progress-bar-container {
+  width: 100%;
+}
+
+.printer-card-spool-select {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+  min-width: 0;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.printer-card-spool-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
 .printer-card-actions {
   flex-shrink: 0;
   display: flex;
   gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.printer-card-actions .btn-icon {
+  padding: 4px 6px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.printer-card-actions .btn-icon svg {
+  flex-shrink: 0;
+}
+
+.printer-card-actions .btn-icon-label {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .printers-empty {

@@ -44,7 +44,7 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
         }),
         prisma.spool.findMany({
           where: { isArchived: false },
-          select: { id: true, name: true, filamentType: true },
+          select: { id: true, name: true, filamentType: true, color: true, colorHex: true },
           orderBy: { name: 'asc' },
         }),
       ]);

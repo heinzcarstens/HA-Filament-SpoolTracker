@@ -234,6 +234,19 @@ async function handlePrintStatusChange(
   }
 }
 
+/** Same print if HA start time and job startedAt are within this many ms (clock skew). */
+const SAME_PRINT_TIME_TOLERANCE_MS = 30 * 1000;
+
+/** Parse HA print start entity state (ISO date string or timestamp) to ms, or null. */
+function parsePrintStartMs(value: string | null | undefined): number | null {
+  if (value == null || String(value).trim() === '') return null;
+  const s = String(value).trim();
+  const parsed = Date.parse(s);
+  if (!Number.isNaN(parsed)) return parsed;
+  const num = Number(s);
+  return Number.isNaN(num) ? null : num;
+}
+
 async function onPrintStarted(
   prisma: NonNullable<ReturnType<typeof getPrismaClient>>,
   printerPrefix: string,
@@ -258,9 +271,51 @@ async function onPrintStarted(
     const taskNameEntity = printer.entityTaskName ?? `sensor.${printerPrefix}_task_name`;
     const printWeightEntity = printer.entityPrintWeight ?? `sensor.${printerPrefix}_print_weight`;
     const coverImageEntity = printer.entityCoverImage ?? `image.${printerPrefix}_cover_image`;
+    const printStartEntity = printer.entityPrintStart ?? `sensor.${printerPrefix}_print_start`;
     const projectName = await fetchEntityState(taskNameEntity) || 'Unknown Print';
     const printWeight = await fetchEntityState(printWeightEntity);
     const coverImageHaPath = await fetchEntityValue(coverImageEntity, 'entity_picture');
+    const haPrintStartRaw = await fetchEntityState(printStartEntity);
+    const haPrintStartMs = parsePrintStartMs(haPrintStartRaw);
+
+    const existingInProgress = await prisma.printJob.findFirst({
+      where: { printerId: printer.id, status: 'in_progress' },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (existingInProgress) {
+      const existingStartedMs = existingInProgress.startedAt.getTime();
+      const samePrintByTime =
+        haPrintStartMs != null &&
+        Math.abs(haPrintStartMs - existingStartedMs) < SAME_PRINT_TIME_TOLERANCE_MS;
+      if (samePrintByTime) {
+        trackedPrintStates.set(printerPrefix, {
+          printerId: printer.id,
+          lastStatus: 'in_progress',
+          printJobId: existingInProgress.id,
+        });
+        logger.debug(`Skipping duplicate job create: same print start time, existing job ${existingInProgress.id}`);
+        return;
+      }
+      if (haPrintStartMs == null) {
+        const sameName = (existingInProgress.projectName || '').trim() === (projectName || '').trim();
+        const startedRecently = Date.now() - existingStartedMs < 3 * 60 * 1000;
+        if (sameName || startedRecently) {
+          trackedPrintStates.set(printerPrefix, {
+            printerId: printer.id,
+            lastStatus: 'in_progress',
+            printJobId: existingInProgress.id,
+          });
+          logger.debug(`Skipping duplicate job create: no print-start entity, using name/recent fallback, job ${existingInProgress.id}`);
+          return;
+        }
+      }
+      await prisma.printJob.update({
+        where: { id: existingInProgress.id },
+        data: { status: 'completed', completedAt: new Date(), progress: 100 },
+      });
+      logger.info(`Superseded in-progress job ${existingInProgress.id} ("${existingInProgress.projectName}") by new print "${projectName}"`);
+    }
 
     const job = await prisma.printJob.create({
       data: {

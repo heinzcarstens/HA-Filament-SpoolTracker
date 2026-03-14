@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { printersApi, haApi, spoolsApi } from '@services/api';
 import type { Printer, Spool, HAConnectionStatus, HADiscoveredEntity } from '@ha-addon/types';
 import EditPrinterModal, { type EditPrinterSaveData } from '@modals/EditPrinterModal';
 import AddPrinterModal from '@modals/AddPrinterModal';
 import ConfirmModal from '@modals/ConfirmModal';
+import ProgressBar from '@components/ProgressBar';
+import SpoolSelect from '@components/SpoolSelect';
 import './index.css';
 
 export default function PrintersPage() {
+  const navigate = useNavigate();
   const [printers, setPrinters] = useState<Printer[]>([]);
   const [haStatus, setHaStatus] = useState<HAConnectionStatus | null>(null);
   const [discoveredEntities, setDiscoveredEntities] = useState<HADiscoveredEntity[]>([]);
@@ -100,6 +104,15 @@ export default function PrintersPage() {
     }
   };
 
+  const handleLoadedSpoolChange = async (printer: Printer, activeSpoolId: string | null) => {
+    try {
+      const res = await printersApi.update(printer.id, { activeSpoolId });
+      setPrinters((prev) => prev.map((p) => (p.id === printer.id ? res.data : p)));
+    } catch (err) {
+      console.error('Failed to update loaded spool:', err);
+    }
+  };
+
   const unregistered = discoveredEntities.filter(
     (e) => !printers.some((p) => p.haDeviceId === e.deviceId)
   );
@@ -133,19 +146,74 @@ export default function PrintersPage() {
           <div className="printer-cards">
             {printers.map((printer) => (
               <div key={printer.id} className="printer-card">
-                <div className="printer-card-icon">🖨️</div>
-                <div className="printer-card-info">
-                  <span className="printer-card-name">{printer.name}</span>
-                  <span className="printer-card-model">{printer.model || 'Unknown model'}</span>
-                  <span className="printer-card-entity">{printer.entityPrefix}</span>
+                <div className="printer-card-top">
+                  <div className="printer-card-icon">🖨️</div>
+                  <div className="printer-card-heading">
+                    <span className="printer-card-name">{printer.name}</span>
+                    {(printer.model && printer.model !== printer.name) || printer.entityPrefix !== printer.name ? (
+                      <span className="printer-card-meta">
+                        {printer.model && printer.model !== printer.name
+                          ? printer.model
+                          : `ID: ${printer.entityPrefix}`}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="printer-card-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm btn-icon"
+                      onClick={() => setEditingPrinter(printer)}
+                      title="Edit printer"
+                      aria-label="Edit printer"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                      <span className="btn-icon-label">Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm btn-icon"
+                      onClick={() => setDeletingPrinter(printer)}
+                      title="Remove printer"
+                      aria-label="Remove printer"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                      <span className="btn-icon-label">Remove</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="printer-card-actions">
-                  <button className="btn btn-secondary btn-sm" onClick={() => setEditingPrinter(printer)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => setDeletingPrinter(printer)}>
-                    Remove
-                  </button>
+                <div className="printer-card-spool">
+                  <span className="printer-card-spool-label">Loaded spool</span>
+                  {printer.activeSpool ? (
+                    <>
+                      <button
+                        type="button"
+                        className="printer-card-spool-preview"
+                        onClick={() => navigate(`/spools/${printer.activeSpool!.id}`)}
+                      >
+                        <span className="printer-card-spool-dot" style={{ backgroundColor: printer.activeSpool.colorHex || printer.activeSpool.color }} />
+                        <span className="printer-card-spool-name">{printer.activeSpool.name}</span>
+                        <span className="printer-card-spool-weight">
+                          {Math.round(printer.activeSpool.remainingWeight)}g / {Math.round(printer.activeSpool.initialWeight)}g
+                        </span>
+                      </button>
+                        <ProgressBar value={printer.activeSpool.remainingWeight} max={printer.activeSpool.initialWeight} size="sm" />
+                        <SpoolSelect
+                          value={printer.activeSpoolId ?? null}
+                          onChange={(id) => handleLoadedSpoolChange(printer, id)}
+                          spools={spools.filter((s) => !s.isArchived)}
+                          placeholder="None"
+                          aria-label="Change loaded spool"
+                        />
+                    </>
+                  ) : (
+                    <SpoolSelect
+                      value={null}
+                      onChange={(id) => handleLoadedSpoolChange(printer, id)}
+                      spools={spools.filter((s) => !s.isArchived)}
+                      placeholder="Select spool…"
+                      aria-label="Select loaded spool"
+                    />
+                  )}
                 </div>
               </div>
             ))}

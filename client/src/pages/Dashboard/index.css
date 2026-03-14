@@ -172,6 +172,41 @@
   filter: brightness(1.05);
 }
 
+.printer-with-spool-card .spool-select-trigger-custom {
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.08));
+  border-color: var(--accent-primary);
+}
+
+.printer-with-spool-card .spool-select-trigger-custom:hover {
+  filter: brightness(1.05);
+}
+
+.printer-with-spool-card .spool-select-empty .spool-select-trigger {
+  border-style: dashed;
+  background: var(--bg-tertiary, rgba(0, 0, 0, 0.08));
+}
+
+.active-spool-trigger-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.active-spool-view-link {
+  font-size: 12px;
+  color: var(--accent-primary);
+  text-decoration: none;
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 2px 6px;
+}
+
+.active-spool-view-link:hover {
+  text-decoration: underline;
+}
+
 .active-spool-header {
   display: flex;
   align-items: center;
