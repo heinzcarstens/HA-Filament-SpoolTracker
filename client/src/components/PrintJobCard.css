@@ -45,6 +45,58 @@
   margin-left: auto;
 }
 
+.print-job-status-select {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 28px 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  max-width: 148px;
+  appearance: none;
+  color-scheme: dark;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M3 4.5L6 8l3-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+/* Native option list (supported in Chromium; harmless elsewhere) */
+.print-job-status-select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.print-job-status-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.print-job-status-select--in_progress {
+  background-color: rgba(88, 166, 255, 0.15);
+  border-color: rgba(88, 166, 255, 0.35);
+  color: var(--accent-primary);
+}
+
+.print-job-status-select--completed {
+  background-color: rgba(35, 134, 54, 0.18);
+  border-color: rgba(63, 185, 80, 0.35);
+  color: #3fb950;
+}
+
+.print-job-status-select--failed {
+  background-color: rgba(218, 54, 51, 0.15);
+  border-color: rgba(248, 81, 73, 0.35);
+  color: #f85149;
+}
+
+.print-job-status-select--cancelled {
+  background-color: rgba(110, 118, 129, 0.2);
+  border-color: var(--border-color);
+  color: var(--text-muted);
+}
+
 .print-job-delete-btn {
   background: none;
   border: none;

@@ -5,6 +5,7 @@ import type { PrintJob, Spool, Printer, PrintJobStatus } from '@ha-addon/types';
 import PrintJobCard from '@components/PrintJobCard';
 import AddPrintJobModal from '@modals/AddPrintJobModal';
 import ConfirmModal from '@modals/ConfirmModal';
+import PrintJobStatusConfirmModal, { type StatusChangeApplyOptions } from '@modals/PrintJobStatusConfirmModal';
 import './index.css';
 
 const PAGE_SIZE = 20;
@@ -22,6 +23,7 @@ export default function PrintHistoryPage() {
   const [selectedSpoolId, setSelectedSpoolId] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingJob, setDeletingJob] = useState<PrintJob | null>(null);
+  const [statusChangeDraft, setStatusChangeDraft] = useState<{ job: PrintJob; nextStatus: PrintJobStatus } | null>(null);
 
   // Initialize status filter from query string (e.g. /history?status=in_progress)
   useEffect(() => {
@@ -137,12 +139,24 @@ export default function PrintHistoryPage() {
     }
   };
 
-  const handleCompleteJob = async (job: PrintJob) => {
+  const handleStatusChangeRequest = (job: PrintJob, nextStatus: PrintJobStatus) => {
+    if (nextStatus === job.status) return;
+    setStatusChangeDraft({ job, nextStatus });
+  };
+
+  const applyStatusChange = async (options: StatusChangeApplyOptions) => {
+    if (!statusChangeDraft) return;
+    const { job, nextStatus } = statusChangeDraft;
     try {
-      await printJobsApi.update(job.id, { status: 'completed' });
+      await printJobsApi.update(job.id, {
+        status: nextStatus,
+        skipFilamentDeduction: options.skipFilamentDeduction,
+        restoreFilament: options.restoreFilament,
+      });
+      setStatusChangeDraft(null);
       await reloadFirstPage();
     } catch (err) {
-      console.error('Failed to complete print job:', err);
+      console.error('Failed to update print job status:', err);
     }
   };
 
@@ -194,7 +208,7 @@ export default function PrintHistoryPage() {
                 key={job.id}
                 job={job}
                 onAssignSpool={(j) => { setAssigningJob(j); setSelectedSpoolId(''); }}
-                onComplete={handleCompleteJob}
+                onStatusChange={handleStatusChangeRequest}
                 onDelete={(j) => setDeletingJob(j)}
               />
             ))}
@@ -258,6 +272,15 @@ export default function PrintHistoryPage() {
           confirmLabel="Delete"
           onConfirm={handleDeleteJob}
           onCancel={() => setDeletingJob(null)}
+        />
+      )}
+
+      {statusChangeDraft && (
+        <PrintJobStatusConfirmModal
+          job={statusChangeDraft.job}
+          nextStatus={statusChangeDraft.nextStatus}
+          onCancel={() => setStatusChangeDraft(null)}
+          onApply={applyStatusChange}
         />
       )}
     </div>

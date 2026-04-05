@@ -143,6 +143,26 @@ const PRINT_STATUS_STATES = new Set([
   'running', 'printing', 'idle', 'finish', 'finished', 'completed', 'failed', 'offline', 'unknown', 'unavailable',
 ]);
 
+/** Parse HA progress sensor state (e.g. "42", "42.5", "42%") to 0–100, or null. */
+export function parseProgressPercent(value: string | null | undefined): number | null {
+  if (value == null) return null;
+  const s = String(value).trim().replace(/%/g, '');
+  if (s === '' || s === 'unknown' || s === 'unavailable') return null;
+  const n = parseFloat(s);
+  if (Number.isNaN(n)) return null;
+  return Math.min(100, Math.max(0, n));
+}
+
+/** Parse print_weight (or similar) HA state to grams for `filamentUsed`, or null. */
+export function parseHaFilamentUsedGrams(value: string | null | undefined): number | null {
+  if (value == null) return null;
+  const s = String(value).trim().replace(/g/gi, '');
+  if (s === '' || s === 'unknown' || s === 'unavailable') return null;
+  const n = parseFloat(s);
+  if (Number.isNaN(n) || n < 0) return null;
+  return n;
+}
+
 async function handleStateChange(data: {
   entity_id?: string;
   new_state?: Record<string, unknown>;
@@ -165,6 +185,11 @@ async function handleStateChange(data: {
   if (entity_id.endsWith('_print_status')) {
     logger.debug(`Print status event: entity_id=${entity_id} state=${state} isBambu=${isBambu} prefix=${prefix}`);
     await handlePrintStatusChange(entity_id, new_state, old_state);
+    return;
+  }
+
+  if (entity_id.endsWith('_print_progress') && entity_id.startsWith('sensor.')) {
+    await handlePrintProgressChange(entity_id, new_state, old_state);
     return;
   }
 
@@ -205,6 +230,62 @@ async function maybeNotifyFilamentChange(printerPrefix: string): Promise<void> {
     );
   } catch (err) {
     logger.error('Failed to send filament-change notification:', err);
+  }
+}
+
+async function handlePrintProgressChange(
+  entityId: string,
+  newState: Record<string, unknown>,
+  oldState?: Record<string, unknown> | null,
+): Promise<void> {
+  const prisma = getPrismaClient();
+  if (!prisma) return;
+
+  const newRaw = newState.state as string | undefined;
+  const oldRaw = oldState?.state as string | undefined;
+  if (newRaw === oldRaw) return;
+
+  const pct = parseProgressPercent(newRaw);
+  if (pct == null) return;
+
+  const prefix = entityId.replace(/^sensor\./, '').replace(/_print_progress$/, '');
+
+  try {
+    const printer = await prisma.printer.findFirst({
+      where: {
+        OR: [
+          { entityPrintProgress: entityId },
+          {
+            AND: [
+              { entityPrintProgress: null },
+              { OR: [{ entityPrefix: prefix }, { haDeviceId: prefix }] },
+            ],
+          },
+        ],
+      },
+    });
+    if (!printer) return;
+
+    const job = await prisma.printJob.findFirst({
+      where: { printerId: printer.id, status: 'in_progress' },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (!job) return;
+
+    const pfx = printer.entityPrefix || printer.haDeviceId;
+    const weightEntity = printer.entityPrintWeight ?? (pfx ? `sensor.${pfx}_print_weight` : '');
+    const weightRaw = weightEntity ? await fetchEntityState(weightEntity) : null;
+    const grams = parseHaFilamentUsedGrams(weightRaw);
+
+    await prisma.printJob.update({
+      where: { id: job.id },
+      data: {
+        progress: pct,
+        ...(grams != null ? { filamentUsed: grams } : {}),
+      },
+    });
+  } catch (err) {
+    logger.error('Failed to update print progress from HA:', err);
   }
 }
 
@@ -272,7 +353,8 @@ async function onPrintStarted(
     const taskNameEntity = printer.entityTaskName ?? `sensor.${printerPrefix}_task_name`;
     const printWeightEntity = printer.entityPrintWeight ?? `sensor.${printerPrefix}_print_weight`;
     const coverImageEntity = printer.entityCoverImage ?? `image.${printerPrefix}_cover_image`;
-    const printStartEntity = (printer as { entityPrintStart?: string | null }).entityPrintStart ?? `sensor.${printerPrefix}_print_start`;
+    const printStartEntity = printer.entityPrintStart ?? `sensor.${printerPrefix}_print_start`;
+    const printProgressEntity = printer.entityPrintProgress ?? `sensor.${printerPrefix}_print_progress`;
     const projectName = await fetchEntityState(taskNameEntity) || 'Unknown Print';
     const printWeight = await fetchEntityState(printWeightEntity);
     const coverImageHaPath = await fetchEntityValue(coverImageEntity, 'entity_picture');
@@ -318,6 +400,8 @@ async function onPrintStarted(
       logger.info(`Superseded in-progress job ${existingInProgress.id} ("${existingInProgress.projectName}") by new print "${projectName}"`);
     }
 
+    const initialProgress = parseProgressPercent(await fetchEntityState(printProgressEntity));
+
     const job = await prisma.printJob.create({
       data: {
         printerId: printer.id,
@@ -325,6 +409,7 @@ async function onPrintStarted(
         projectImage: null,
         filamentUsed: printWeight ? parseFloat(printWeight) : null,
         status: 'in_progress',
+        ...(initialProgress != null ? { progress: initialProgress } : {}),
       },
     });
 
@@ -467,6 +552,25 @@ async function reconcileInProgressJobs(): Promise<void> {
       if (isFinished || isFailed) {
         logger.info(`Reconciliation: job ${job.id} for printer ${prefix} has HA status "${status}", finalizing.`);
         await onPrintFinished(prisma, prefix, isFailed);
+        continue;
+      }
+
+      const progressEntity = printer.entityPrintProgress ?? `sensor.${prefix}_print_progress`;
+      const weightEntity = printer.entityPrintWeight ?? `sensor.${prefix}_print_weight`;
+      const [progressRaw, weightRaw] = await Promise.all([
+        fetchEntityState(progressEntity),
+        fetchEntityState(weightEntity),
+      ]);
+      const pct = parseProgressPercent(progressRaw);
+      const grams = parseHaFilamentUsedGrams(weightRaw);
+      if (pct != null || grams != null) {
+        await prisma.printJob.update({
+          where: { id: job.id },
+          data: {
+            ...(pct != null ? { progress: pct } : {}),
+            ...(grams != null ? { filamentUsed: grams } : {}),
+          },
+        });
       }
     }
   } catch (err) {
@@ -474,7 +578,7 @@ async function reconcileInProgressJobs(): Promise<void> {
   }
 }
 
-async function fetchEntityState(entityId: string): Promise<string | null> {
+export async function fetchEntityState(entityId: string): Promise<string | null> {
   const token = process.env.SUPERVISOR_TOKEN;
   if (!token) return null;
 

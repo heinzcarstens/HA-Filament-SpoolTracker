@@ -6,6 +6,7 @@ const ENTITY_SUFFIXES = {
   entityPrintStatus: '_print_status',
   entityTaskName: '_task_name',
   entityPrintWeight: '_print_weight',
+  entityPrintProgress: '_print_progress',
   entityCoverImage: '_cover_image',
   entityPrintStart: '_print_start',
 } as const;
@@ -15,6 +16,7 @@ const ENTITY_DEFAULT_DOMAIN: Record<string, string> = {
   [ENTITY_SUFFIXES.entityPrintStatus]: 'sensor',
   [ENTITY_SUFFIXES.entityTaskName]: 'sensor',
   [ENTITY_SUFFIXES.entityPrintWeight]: 'sensor',
+  [ENTITY_SUFFIXES.entityPrintProgress]: 'sensor',
   [ENTITY_SUFFIXES.entityCoverImage]: 'image',
   [ENTITY_SUFFIXES.entityPrintStart]: 'sensor',
 };
@@ -22,6 +24,7 @@ const ENTITY_ATTRIBUTE: Record<string, string> = {
   [ENTITY_SUFFIXES.entityPrintStatus]: 'state',
   [ENTITY_SUFFIXES.entityTaskName]: 'state',
   [ENTITY_SUFFIXES.entityPrintWeight]: 'state',
+  [ENTITY_SUFFIXES.entityPrintProgress]: 'state',
   [ENTITY_SUFFIXES.entityCoverImage]: 'entity_picture',
   [ENTITY_SUFFIXES.entityPrintStart]: 'state',
 };
@@ -35,6 +38,7 @@ export type EditPrinterSaveData = {
   entityPrintStatus?: string | null;
   entityTaskName?: string | null;
   entityPrintWeight?: string | null;
+  entityPrintProgress?: string | null;
   entityCoverImage?: string | null;
   entityPrintStart?: string | null;
 };
@@ -63,6 +67,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
   const [entityPrintStatus, setEntityPrintStatus] = useState(printer.entityPrintStatus ?? '');
   const [entityTaskName, setEntityTaskName] = useState(printer.entityTaskName ?? '');
   const [entityPrintWeight, setEntityPrintWeight] = useState(printer.entityPrintWeight ?? '');
+  const [entityPrintProgress, setEntityPrintProgress] = useState(printer.entityPrintProgress ?? '');
   const [entityCoverImage, setEntityCoverImage] = useState(printer.entityCoverImage ?? '');
   const [entityPrintStart, setEntityPrintStart] = useState(printer.entityPrintStart ?? '');
   const [discovering, setDiscovering] = useState(false);
@@ -78,6 +83,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
     setEntityPrintStatus(printer.entityPrintStatus ?? '');
     setEntityTaskName(printer.entityTaskName ?? '');
     setEntityPrintWeight(printer.entityPrintWeight ?? '');
+    setEntityPrintProgress(printer.entityPrintProgress ?? '');
     setEntityCoverImage(printer.entityCoverImage ?? '');
     setEntityPrintStart(printer.entityPrintStart ?? '');
   }, [printer]);
@@ -109,10 +115,11 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       getRequestKey(entityPrintStatus, ENTITY_SUFFIXES.entityPrintStatus),
       getRequestKey(entityTaskName, ENTITY_SUFFIXES.entityTaskName),
       getRequestKey(entityPrintWeight, ENTITY_SUFFIXES.entityPrintWeight),
+      getRequestKey(entityPrintProgress, ENTITY_SUFFIXES.entityPrintProgress),
       getRequestKey(entityCoverImage, ENTITY_SUFFIXES.entityCoverImage),
       getRequestKey(entityPrintStart, ENTITY_SUFFIXES.entityPrintStart),
     ].filter(Boolean) as string[];
-  }, [entityPrefix, entityPrintStatus, entityTaskName, entityPrintWeight, entityCoverImage, entityPrintStart]);
+  }, [entityPrefix, entityPrintStatus, entityTaskName, entityPrintWeight, entityPrintProgress, entityCoverImage, entityPrintStart]);
 
   const fetchEntityStates = useCallback(() => {
     const ids = getRequestIds();
@@ -141,6 +148,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       entityPrintStatus: entityPrintStatus.trim() || null,
       entityTaskName: entityTaskName.trim() || null,
       entityPrintWeight: entityPrintWeight.trim() || null,
+      entityPrintProgress: entityPrintProgress.trim() || null,
       entityCoverImage: entityCoverImage.trim() || null,
       entityPrintStart: entityPrintStart.trim() || null,
     });
@@ -172,6 +180,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStatus), ENTITY_SUFFIXES.entityPrintStatus, setEntityPrintStatus);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityTaskName), ENTITY_SUFFIXES.entityTaskName, setEntityTaskName);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintWeight), ENTITY_SUFFIXES.entityPrintWeight, setEntityPrintWeight);
+      setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintProgress), ENTITY_SUFFIXES.entityPrintProgress, setEntityPrintProgress);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityCoverImage), ENTITY_SUFFIXES.entityCoverImage, setEntityCoverImage);
       setOverride(pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStart), ENTITY_SUFFIXES.entityPrintStart, setEntityPrintStart);
       if (onFetchEntityStates) {
@@ -179,6 +188,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
           defaultId(ENTITY_SUFFIXES.entityPrintStatus),
           defaultId(ENTITY_SUFFIXES.entityTaskName),
           defaultId(ENTITY_SUFFIXES.entityPrintWeight),
+          defaultId(ENTITY_SUFFIXES.entityPrintProgress),
           defaultId(ENTITY_SUFFIXES.entityCoverImage),
           defaultId(ENTITY_SUFFIXES.entityPrintStart),
         ].filter(Boolean);
@@ -186,10 +196,11 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStatus),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityTaskName),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintWeight),
+          pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintProgress),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityCoverImage),
           pickEntityBySuffix(match.entities, ENTITY_SUFFIXES.entityPrintStart),
         ];
-        const suffixes = [ENTITY_SUFFIXES.entityPrintStatus, ENTITY_SUFFIXES.entityTaskName, ENTITY_SUFFIXES.entityPrintWeight, ENTITY_SUFFIXES.entityCoverImage, ENTITY_SUFFIXES.entityPrintStart];
+        const suffixes = [ENTITY_SUFFIXES.entityPrintStatus, ENTITY_SUFFIXES.entityTaskName, ENTITY_SUFFIXES.entityPrintWeight, ENTITY_SUFFIXES.entityPrintProgress, ENTITY_SUFFIXES.entityCoverImage, ENTITY_SUFFIXES.entityPrintStart];
         const requestIds = suffixes
           .map((s, i) => {
             const effectiveId = overrides[i] || ids[i];
@@ -306,7 +317,7 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
               </div>
             </div>
             <p className="form-hint">
-              Entity IDs used for print status, task name, print weight, cover image, and print start time. Leave override empty to use the default <code>sensor.{prefix || '…'}_*</code>.
+              Entity IDs used for print status, task name, print weight, print progress, cover image, and print start time. Leave override empty to use the default <code>sensor.{prefix || '…'}_*</code>.
             </p>
             <div className="monitored-entity-rows">
               <div className="monitored-entity-row">
@@ -366,6 +377,26 @@ export default function EditPrinterModal({ printer, spools = [], onSave, onClose
                   value={entityPrintWeight}
                   onChange={(e) => setEntityPrintWeight(e.target.value)}
                   placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityPrintWeight)}
+                  className="monitored-entity-override"
+                />
+              </div>
+              <div className="monitored-entity-row">
+                <span className="monitored-entity-label">Print progress</span>
+                <div className="monitored-entity-effective-line">
+                  <code className="monitored-entity-effective">
+                    {getRequestKey(entityPrintProgress, ENTITY_SUFFIXES.entityPrintProgress) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintProgress)}
+                  </code>
+                  {(getRequestKey(entityPrintProgress, ENTITY_SUFFIXES.entityPrintProgress) || defaultRequestKey(ENTITY_SUFFIXES.entityPrintProgress) !== '—') && (
+                    <span className="monitored-entity-current">
+                      · Current value: {entityStatesLoading ? '…' : (entityStates[getRequestKey(entityPrintProgress, ENTITY_SUFFIXES.entityPrintProgress)] ?? '—')}
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={entityPrintProgress}
+                  onChange={(e) => setEntityPrintProgress(e.target.value)}
+                  placeholder={defaultRequestKey(ENTITY_SUFFIXES.entityPrintProgress)}
                   className="monitored-entity-override"
                 />
               </div>

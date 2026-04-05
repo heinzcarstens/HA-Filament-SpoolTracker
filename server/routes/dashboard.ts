@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getPrismaClient } from '../database';
 import { LOG } from '../utils/logger';
+import { fetchEntityState } from '../services/haIntegration';
 
 const logger = LOG('DASHBOARD');
 const router: Router = Router();
@@ -12,7 +13,7 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
   try {
     const lowFilamentThreshold = 100; // grams, TODO: read from settings
 
-    const [totalSpools, activeSpools, registeredPrinters, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools, activeSpoolsList, printersList, spoolsList] =
+    const [totalSpools, activeSpools, registeredPrinters, activePrintJobs, recentPrintJobs, lowFilamentSpools, allSpools, activeSpoolsList, printersList, spoolsList, activeInProgressPrintJobs] =
       await Promise.all([
         prisma.spool.count({ where: { archivedAt: null } }),
         prisma.spool.count({ where: { isActive: true, archivedAt: null } }),
@@ -47,9 +48,40 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
           select: { id: true, name: true, filamentType: true, color: true, colorHex: true, remainingWeight: true },
           orderBy: { name: 'asc' },
         }),
+        prisma.printJob.findMany({
+          where: { status: 'in_progress', printerId: { not: null } },
+          include: { printer: true, spool: true },
+          orderBy: { startedAt: 'desc' },
+        }),
       ]);
 
     const totalFilamentStock = allSpools.reduce((sum, s) => sum + s.remainingWeight, 0);
+
+    const printerJobLiveMetrics: Record<string, { eta: string | null; filamentGrams: string | null }> = {};
+    const token = process.env.SUPERVISOR_TOKEN;
+    if (token && activeInProgressPrintJobs.length > 0) {
+      const latestByPrinter = new Map<string, (typeof activeInProgressPrintJobs)[0]>();
+      for (const j of activeInProgressPrintJobs) {
+        if (!j.printerId || !j.printer) continue;
+        const prev = latestByPrinter.get(j.printerId);
+        if (!prev || j.startedAt > prev.startedAt) latestByPrinter.set(j.printerId, j);
+      }
+      await Promise.all(
+        [...latestByPrinter.entries()].map(async ([printerId, job]) => {
+          const printer = job.printer;
+          if (!printer) return;
+          const prefix = printer.entityPrefix || printer.haDeviceId;
+          if (!prefix) return;
+          const weightEntity = printer.entityPrintWeight ?? `sensor.${prefix}_print_weight`;
+          const remainingEntity = `sensor.${prefix}_remaining_time`;
+          const [filamentGrams, eta] = await Promise.all([
+            fetchEntityState(weightEntity),
+            fetchEntityState(remainingEntity),
+          ]);
+          printerJobLiveMetrics[printerId] = { eta, filamentGrams };
+        }),
+      );
+    }
 
     const spoolIdsForPrinter = [...new Set([...lowFilamentSpools.map((s) => s.id), ...activeSpoolsList.map((s) => s.id)])];
     const printersWithSpool = spoolIdsForPrinter.length > 0
@@ -78,6 +110,8 @@ router.get('/dashboard/stats', async (_req: Request, res: Response) => {
       activeSpoolsList: withLoadedOn(activeSpoolsList),
       printersList,
       spoolsList,
+      activeInProgressPrintJobs,
+      printerJobLiveMetrics,
     });
   } catch (error) {
     logger.error('Failed to fetch dashboard stats:', error);

@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
-import type { PrintJob } from '@ha-addon/types';
+import type { PrintJob, PrintJobStatus } from '@ha-addon/types';
 import { getApiBaseURL } from '../services/api';
 import StatusBadge from './StatusBadge';
 import './PrintJobCard.css';
+
+const STATUS_SELECT_OPTIONS: { value: PrintJobStatus; label: string }[] = [
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 
 function projectImageSrc(projectImage: string | null): string | undefined {
   if (!projectImage) return undefined;
@@ -16,9 +23,11 @@ interface PrintJobCardProps {
   onAssignSpool?: (job: PrintJob) => void;
   onDelete?: (job: PrintJob) => void;
   onComplete?: (job: PrintJob) => void;
+  /** When set, status is editable via a dropdown (e.g. Print History). */
+  onStatusChange?: (job: PrintJob, nextStatus: PrintJobStatus) => void;
 }
 
-export default function PrintJobCard({ job, onAssignSpool, onDelete, onComplete }: PrintJobCardProps) {
+export default function PrintJobCard({ job, onAssignSpool, onDelete, onComplete, onStatusChange }: PrintJobCardProps) {
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -38,8 +47,23 @@ export default function PrintJobCard({ job, onAssignSpool, onDelete, onComplete 
         <div className="print-job-header">
           <h4 className="print-job-name">{job.projectName}</h4>
           <div className="print-job-header-actions">
-            <StatusBadge status={job.status} />
-            {onComplete && job.status === 'in_progress' && (
+            {onStatusChange ? (
+              <select
+                className={`print-job-status-select print-job-status-select--${job.status}`}
+                value={job.status}
+                onChange={(e) => onStatusChange(job, e.target.value as PrintJobStatus)}
+                aria-label="Print job status"
+              >
+                {STATUS_SELECT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <StatusBadge status={job.status} />
+            )}
+            {onComplete && job.status === 'in_progress' && !onStatusChange && (
               <button
                 type="button"
                 className="btn btn-secondary btn-xs"

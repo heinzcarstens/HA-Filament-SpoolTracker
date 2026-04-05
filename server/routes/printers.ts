@@ -43,6 +43,7 @@ router.post('/printers', async (req: Request, res: Response) => {
         entityPrintWeight: body.entityPrintWeight ?? undefined,
         entityCoverImage: body.entityCoverImage ?? undefined,
         entityPrintStart: body.entityPrintStart ?? undefined,
+        entityPrintProgress: body.entityPrintProgress ?? undefined,
       } as unknown as PrinterCreateData,
     });
     res.status(201).json(printer);
@@ -78,6 +79,7 @@ router.put('/printers/:id', async (req: Request, res: Response) => {
     if (body.entityPrintWeight !== undefined) data.entityPrintWeight = body.entityPrintWeight;
     if (body.entityCoverImage !== undefined) data.entityCoverImage = body.entityCoverImage;
     if (body.entityPrintStart !== undefined) data.entityPrintStart = body.entityPrintStart;
+    if (body.entityPrintProgress !== undefined) data.entityPrintProgress = body.entityPrintProgress;
 
     if (Object.keys(data).length > 0) {
       type PrinterUpdateData = Parameters<typeof prisma.printer.update>[0]['data'];

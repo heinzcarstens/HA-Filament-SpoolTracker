@@ -135,8 +135,25 @@ router.put('/print-jobs/:id', async (req: Request, res: Response) => {
     if (body.spoolId !== undefined) data.spoolId = body.spoolId;
     if (body.status !== undefined) data.status = body.status;
     if (body.notes !== undefined) data.notes = body.notes;
-    if (body.status === 'completed' || body.status === 'failed' || body.status === 'cancelled') {
-      data.completedAt = new Date();
+
+    if (body.status !== undefined) {
+      if (body.status === 'in_progress') {
+        data.completedAt = null;
+      } else if (body.status === 'completed' || body.status === 'failed' || body.status === 'cancelled') {
+        data.completedAt = new Date();
+      }
+    }
+
+    if (body.progress !== undefined) {
+      data.progress = body.progress;
+    } else if (body.status !== undefined) {
+      if (body.status === 'completed') {
+        data.progress = 100;
+      } else if (body.status === 'failed' || body.status === 'cancelled') {
+        data.progress = null;
+      } else if (body.status === 'in_progress' && existing.status === 'completed') {
+        data.progress = null;
+      }
     }
 
     const job = await prisma.printJob.update({
@@ -145,14 +162,39 @@ router.put('/print-jobs/:id', async (req: Request, res: Response) => {
       include: { printer: true, spool: true },
     });
 
+    const leavingCompleted =
+      existing.status === 'completed' &&
+      body.status !== undefined &&
+      body.status !== 'completed';
+    const shouldRestore =
+      body.restoreFilament === true &&
+      leavingCompleted &&
+      existing.spoolId &&
+      existing.filamentUsed != null &&
+      existing.filamentUsed > 0;
+
+    if (shouldRestore && existing.spoolId && existing.filamentUsed != null) {
+      const addBack = existing.filamentUsed;
+      const spool = await prisma.spool.findUnique({ where: { id: existing.spoolId } });
+      if (spool) {
+        await prisma.spool.update({
+          where: { id: existing.spoolId },
+          data: { remainingWeight: spool.remainingWeight + addBack },
+        });
+      }
+    }
+
     const transitionedToCompleted =
       body.status === 'completed' && existing.status !== 'completed';
     const newlyAssignedSpool =
       body.spoolId !== undefined && body.spoolId != null && existing.spoolId == null;
+    const skipDeduct = body.skipFilamentDeduction === true;
 
     const shouldDeduct =
+      !skipDeduct &&
       job.spoolId &&
-      job.filamentUsed &&
+      job.filamentUsed != null &&
+      job.filamentUsed > 0 &&
       (
         (transitionedToCompleted && job.spoolId != null) ||
         (newlyAssignedSpool && job.status === 'completed')

@@ -35,3 +35,34 @@
   min-width: 32px;
   text-align: right;
 }
+
+.progress-bar-value--muted {
+  color: var(--text-muted);
+}
+
+.progress-bar-container--indeterminate .progress-bar-track {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar-fill--indeterminate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  max-width: 140px;
+  border-radius: 4px;
+  background: var(--accent-primary);
+  opacity: 0.9;
+  animation: progress-bar-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes progress-bar-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}

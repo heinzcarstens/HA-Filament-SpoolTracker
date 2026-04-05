@@ -13,6 +13,7 @@ export interface Printer {
   entityPrintWeight: string | null;
   entityCoverImage: string | null;
   entityPrintStart: string | null;
+  entityPrintProgress: string | null;
   createdAt: string;
   updatedAt: string;
   activeSpool?: Spool | null;
@@ -99,6 +100,7 @@ export interface PrinterCreateRequest {
   entityPrintWeight?: string | null;
   entityCoverImage?: string | null;
   entityPrintStart?: string | null;
+  entityPrintProgress?: string | null;
 }
 
 export interface PrinterUpdateRequest extends Partial<PrinterCreateRequest> {
@@ -120,6 +122,11 @@ export interface PrintJobUpdateRequest {
   spoolId?: string | null;
   status?: PrintJobStatus;
   notes?: string;
+  progress?: number | null;
+  /** When marking completed: set true to skip subtracting `filamentUsed` from the linked spool. */
+  skipFilamentDeduction?: boolean;
+  /** When leaving `completed`: set true to add `filamentUsed` back to the linked spool (undo deduction). */
+  restoreFilament?: boolean;
 }
 
 export interface SettingsUpdateRequest {
@@ -142,6 +149,10 @@ export interface DashboardStats {
   printersList: Printer[];
   /** Non-archived spools for loaded-spool dropdowns */
   spoolsList: Pick<Spool, 'id' | 'name' | 'filamentType' | 'color' | 'colorHex' | 'remainingWeight'>[];
+  /** In-progress jobs (for dashboard); includes printer and spool when linked */
+  activeInProgressPrintJobs: PrintJob[];
+  /** Live HA strings keyed by `printerId` (ETA / current print weight) */
+  printerJobLiveMetrics: Record<string, { eta: string | null; filamentGrams: string | null }>;
 }
 
 export interface HAConnectionStatus {
