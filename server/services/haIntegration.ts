@@ -141,7 +141,25 @@ function subscribeToStateChanges(): void {
 
 const PRINT_STATUS_STATES = new Set([
   'running', 'printing', 'idle', 'finish', 'finished', 'completed', 'failed', 'offline', 'unknown', 'unavailable',
+  'läuft', 'laeuft', 'druckt', 'fertig', 'abgeschlossen', 'beendet', 'fehlgeschlagen', 'fehler',
 ]);
+
+const PRINTING_STATUSES = new Set([
+  'running', 'printing', 'läuft', 'laeuft', 'druckt',
+]);
+
+const FINISHED_STATUSES = new Set([
+  'finish', 'finished', 'completed', 'idle', 'fertig', 'abgeschlossen', 'beendet',
+]);
+
+const FAILED_STATUSES = new Set([
+  'failed', 'fehlgeschlagen', 'error', 'fehler',
+]);
+
+function normalizePrinterStatus(value: string | null | undefined): string {
+  return String(value ?? '').toLowerCase().trim();
+}
+
 
 /** Parse HA progress sensor state (e.g. "42", "42.5", "42%") to 0–100, or null. */
 export function parseProgressPercent(value: string | null | undefined): number | null {
@@ -297,17 +315,17 @@ async function handlePrintStatusChange(
   const prisma = getPrismaClient();
   if (!prisma) return;
 
-  const newStatus = (newState.state as string)?.toLowerCase();
-  const oldStatus = (oldState?.state as string)?.toLowerCase();
+  const newStatus = normalizePrinterStatus(newState.state as string | undefined);
+  const oldStatus = normalizePrinterStatus(oldState?.state as string | undefined);
 
   if (newStatus === oldStatus) return;
 
   const printerPrefix = entityId.replace(/_print_status$/, '').replace(/^sensor\./, '');
 
-  const isPrinting = newStatus === 'running' || newStatus === 'printing';
-  const isFinished = newStatus === 'finish' || newStatus === 'finished' || newStatus === 'completed' || newStatus === 'idle';
-  const isFailed = newStatus === 'failed';
-  const wasPrinting = oldStatus === 'running' || oldStatus === 'printing';
+  const isPrinting = PRINTING_STATUSES.has(newStatus);
+  const isFinished = FINISHED_STATUSES.has(newStatus);
+  const isFailed = FAILED_STATUSES.has(newStatus);
+  const wasPrinting = PRINTING_STATUSES.has(oldStatus);
 
   if (isPrinting && !wasPrinting) {
     await onPrintStarted(prisma, printerPrefix, entityId);
